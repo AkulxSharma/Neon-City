@@ -7,16 +7,16 @@ Only the latest version of `index.html` on `main` is supported.
 
 | Version | Supported |
 | ------- | --------- |
-| main (latest) | ✅ |
-| older commits | ❌ |
+| main (latest) | Yes |
+| older commits | No |
 
 ## Reporting a Vulnerability
 
-Because this is a static, client-side-only game with no backend, server, or
-user data storage beyond the browser's local `localStorage` autosave, the
-attack surface is small. Still, if you find something — for example, a way to
-inject or execute arbitrary script through game input, or an issue with how
-the page handles browser storage — please report it responsibly:
+This is a static, client-side game with no backend, server, or user data
+storage beyond the browser's local `localStorage` autosave, so the attack
+surface is small. Still, if you find something (a way to inject or execute
+arbitrary script through game input, or an issue with how the page handles
+browser storage), please report it responsibly:
 
 1. **Do not** open a public issue for security vulnerabilities.
 2. Instead, use GitHub's [private vulnerability reporting](../../security/advisories/new)

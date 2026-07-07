@@ -1,11 +1,10 @@
 # Contributing to Neon City Drive
 
-Thanks for your interest in improving Neon City Drive! This is a single-file
-Three.js project, so the workflow is intentionally lightweight.
+This is a single-file Three.js project, so the workflow stays lightweight on purpose.
 
 ## Project structure
 
-Everything lives in `neon-city-drive/index.html` — Three.js, all game logic,
+Everything lives in `neon-city-drive/index.html`. Three.js, all game logic,
 canvas-generated textures, and Web Audio sound are inlined into that one file.
 There is no build step, bundler, or package.json.
 
@@ -20,21 +19,20 @@ There is no build step, bundler, or package.json.
 
 ## Making changes
 
-- Keep the game **fully offline** — don't add external CDN scripts, fonts, or
+- Keep the game fully offline. Don't add external CDN scripts, fonts, or
   network calls. All assets (textures, audio) should stay procedurally
   generated or inlined.
-- Test in-browser before opening a PR: drive around, enter/exit vehicles,
-  check both day and night, and verify mobile touch controls still work if
-  you touched input handling.
+- Test in the browser before opening a PR: drive around, enter and exit
+  vehicles, check both day and night, and verify mobile touch controls still
+  work if you touched input handling.
 - Match the existing code style (compact, minimal comments, functional
-  helpers) rather than introducing a new pattern for one change.
-- Keep commits focused — one logical change per commit/PR is easier to review
-  than a large mixed diff.
+  helpers) instead of introducing a new pattern for one change.
+- Keep commits focused. One logical change per commit or PR is easier to
+  review than a large mixed diff.
 
-## Reporting bugs / requesting features
+## Reporting bugs or requesting features
 
-Please use the issue templates when opening a new issue — they help us
-triage faster.
+Use the issue templates when opening a new issue. They help with triage.
 
 ## Pull requests
 

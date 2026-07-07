@@ -1,16 +1,16 @@
 # Neon City Drive
 
-A GTA-inspired, single-player 3D open-world driving game that runs entirely offline in your browser. No installs, no build step, no server — just one self-contained `index.html` powered by Three.js.
+A GTA-inspired, single-player 3D driving game that runs entirely offline in your browser. No installs, no build step, no server, just one self-contained `index.html` powered by Three.js.
 
 ## Features
 
-- **Endless procedural city** — chunk-streamed road grid with real NYC building footprints woven in
-- **Garage of vehicles** — supercars, muscle cars, bikes, and emergency vehicles, each with realistic paint, wheels, and lighting
-- **Police & emergency system** — drive a police cruiser, flip on lights and siren (`L`), and nearby patrol cars will fall in behind you in convoy formation while civilian traffic yields and pulls to the roadside
-- **Club Neon** — walk into the club and the game switches to a full dance-floor scene with a procedurally generated Bollywood-style soundtrack and synced NPC choreography
-- **Day/night cycle**, dynamic headlights, traffic lights, pedestrians, and a persistent showroom
-- **Mobile-friendly** — touch joystick and on-screen controls for iOS/Android browsers
-- **Autosave** — progress is saved to `localStorage` as you play
+- **Endless procedural city.** A chunk-streamed road grid with real NYC building footprints woven into the layout.
+- **Garage of vehicles.** Supercars, muscle cars, bikes, and emergency vehicles, each with its own paint, wheels, and lighting.
+- **Police and emergency system.** Drive a police cruiser and flip on lights and siren with `L`. Nearby patrol cars fall in behind you in convoy formation, and civilian traffic pulls to the roadside to let you through.
+- **Club Neon.** Walk through the door and the game switches to a dance-floor scene, complete with a procedurally generated Bollywood-style soundtrack and NPCs dancing in sync with it.
+- **Day/night cycle** with dynamic headlights, traffic lights, pedestrians, and a persistent car showroom.
+- **Mobile support.** A touch joystick and on-screen buttons appear automatically on iOS/Android browsers.
+- **Autosave.** Progress saves to `localStorage` as you play, no account or server needed.
 
 ## Getting Started
 
@@ -45,11 +45,11 @@ On mobile, a virtual joystick and on-screen buttons appear automatically.
 
 ## Tech
 
-Three.js r128 is inlined directly into `index.html`, along with all textures (canvas-generated) and audio (Web Audio API oscillators) — there are no external asset dependencies.
+Three.js r128 is inlined directly into `index.html`, along with all textures (canvas-generated) and audio (Web Audio API oscillators). There are no external asset dependencies.
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and note our [Code of Conduct](CODE_OF_CONDUCT.md).
+Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and note our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security
 
