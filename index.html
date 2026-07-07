@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -4464,7 +4465,10 @@ function buildMapList(){
     const d=Math.round(Math.hypot(L.x-px,L.z-pz));
     const btn=document.createElement('button');
     if(navTarget===L) btn.className='active';
-    btn.innerHTML='<span class="dot" style="background:'+L.col+';color:'+L.col+'"></span><span class="nm">'+L.name+'</span><span class="km">'+d+'m</span>';
+    const dot=document.createElement('span'); dot.className='dot'; dot.style.background=L.col; dot.style.color=L.col;
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=L.name;
+    const km=document.createElement('span'); km.className='km'; km.textContent=d+'m';
+    btn.append(dot,nm,km);
     btn.addEventListener('mousedown',e=>e.preventDefault());
     btn.addEventListener('click',()=>selectDest(L));
     maplistEl.appendChild(btn);
@@ -4726,7 +4730,7 @@ function loadGame(){
     dayT=s.dayT; lightMode=s.lightMode||0; muted=!!s.muted; inClub=!!s.inClub;
     if(inClub) startClubMusic(); else stopClubMusic();
     if(s.out){ outPos.x=s.out.x; outPos.z=s.out.z; outPos.h=s.out.h; }
-    if(s.quality){ quality=s.quality; renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,0.8][quality])); }
+    if(s.quality){ quality=Math.min(2,Math.max(0,s.quality|0)); renderer.setPixelRatio(Math.min(devicePixelRatio,[2,1.25,0.8][quality])); }
     player.x=s.p.x; player.z=s.p.z; player.h=s.p.h;
     if(s.vi>=0&&s.vi<vehicles.length&&s.v){
       const v=vehicles[s.vi]; v.traffic=null;
@@ -4842,7 +4846,7 @@ function tick(now){
     }
     if(!hinted){
       const v=nearestVehicle(player.x,player.z,4.5);
-      if(v&&!inClub){ hintEl.style.display='block'; hintEl.innerHTML='Press <b style="color:#ffd76a">E</b> to '+(v.traffic?'steal':'drive')+' — '+v.name; }
+      if(v&&!inClub){ hintEl.style.display='block'; hintEl.innerHTML='Press <b style="color:#ffd76a">E</b> to '+(v.traffic?'steal':'drive')+' — '; hintEl.appendChild(document.createTextNode(v.name)); }
       else hintEl.style.display='none';
     }
     speedoEl.style.display='none';
