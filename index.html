@@ -3728,7 +3728,7 @@ function makePoliceJeep(){
   cabShape.closePath();
   const cab=new THREE.Mesh(new THREE.ExtrudeGeometry(cabShape,{depth:cw,bevelEnabled:true,bevelThickness:.03,bevelSize:.04,bevelSegments:2,curveSegments:8}),glassMat);
   cab.rotation.y=-Math.PI/2; cab.position.x=cw/2; g.add(cab); g.userData.cab=cab;
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(cw-0.06,0.12,roofF-roofR),bodyMat); roof.position.set(0,roofY,(roofF+roofR)/2); g.add(roof);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(cw-0.1,0.12,roofF-roofR),bodyMat); roof.position.set(0,roofY,(roofF+roofR)/2); g.add(roof);
   // huge wheels + fat arches
   const archMat=new THREE.MeshStandardMaterial({color:0x08080c,metalness:.4,roughness:.6});
   const ax=L*0.64, half=WID/2+0.03, spins=[], fw=[];
