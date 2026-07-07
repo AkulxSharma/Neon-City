@@ -3751,13 +3751,15 @@ function makePoliceJeep(){
     const hl=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.26,0.08),lightOn); hl.position.set(lx,rideH+0.6,L+0.02); g.add(hl);
     const tl=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.32,0.06),tailOn); tl.position.set(lx,rideH+0.6,-L-0.02); g.add(tl);
   });
-  // livery: blue side stripe + POLICE decal on each door
-  const stripeMat=new THREE.MeshBasicMaterial({color:0x12245e});
+  // livery: gold trooper stripe + "STATE POLICE" decal on each door
+  const stripeMat=new THREE.MeshBasicMaterial({color:0xd8b44a});
   [[-1,false],[1,true]].forEach(([sgn,mir])=>{
-    const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.16,LEN*0.78),stripeMat); stripe.position.set(sgn*(WID/2+0.03),rideH+0.74,0); g.add(stripe);
-    const tex=canvasTex(256,64,c=>{ c.clearRect(0,0,256,64); if(mir){c.translate(256,0);c.scale(-1,1);} c.fillStyle='#16386f'; c.font='900 34px Arial Black, Arial'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('POLICE',128,34); });
+    const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.09,LEN*0.78),stripeMat); stripe.position.set(sgn*(WID/2+0.03),rideH+0.86,0); g.add(stripe);
+    const tex=canvasTex(256,64,c=>{ c.clearRect(0,0,256,64); if(mir){c.translate(256,0);c.scale(-1,1);} c.fillStyle='#0b1836'; c.textAlign='center'; c.textBaseline='middle';
+      c.font='800 20px Arial'; c.fillText('STATE',128,16);
+      c.font='900 34px Arial Black, Arial'; c.fillText('POLICE',128,44); });
     tex.encoding=THREE.sRGBEncoding;
-    const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.5),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+    const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.1,0.52),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
     decal.position.set(sgn*(WID/2+0.04),rideH+0.52,0.1); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
   });
   // roof light bar (red + blue pods + glow light)
