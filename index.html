@@ -3718,8 +3718,8 @@ function makePoliceJeep(){
   const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.05,0.5,LEN*0.6),gold); doorPanel.position.y=rideH+0.34; g.add(doorPanel);
   const skid=new THREE.Mesh(new THREE.BoxGeometry(WID*0.8,0.14,LEN*0.9),new THREE.MeshStandardMaterial({color:0x0a0a0e,metalness:.6,roughness:.5})); skid.position.y=rideH-0.02; g.add(skid);
   // greenhouse: profile-extruded glass with a raked windshield + rear glass
-  const cw=WID-0.14, cabFront=0.7, cabRear=-L+0.55, roofY=belt+cabH-0.05;
-  const roofF=cabFront-0.45, roofR=cabRear+0.3;
+  const cw=WID-0.3, cabFront=0.5, cabRear=-1.7, roofY=belt+cabH-0.05;
+  const roofF=-0.05, roofR=-1.4;
   const cabShape=new THREE.Shape();
   cabShape.moveTo(cabFront,belt-0.02);
   cabShape.lineTo(roofF,roofY);          // raked windshield
