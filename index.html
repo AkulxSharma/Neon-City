@@ -3714,8 +3714,8 @@ function makePoliceJeep(){
   const lower=new THREE.Mesh(new THREE.ExtrudeGeometry(bodyShape,bodyExtrude),bodyMat);
   lower.rotation.y=-Math.PI/2; lower.position.x=WID/2; g.add(lower);
   // two-tone door panel (state-trooper gold) + underbody skid plate
-  const gold=new THREE.MeshStandardMaterial({color:0xe6bf5a,metalness:.35,roughness:.45,emissive:0x4a3510,emissiveIntensity:.5});
-  const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.05,0.5,LEN*0.6),gold); doorPanel.position.y=rideH+0.34; g.add(doorPanel);
+  const gold=new THREE.MeshStandardMaterial({color:0xf2c230,metalness:.3,roughness:.5,emissive:0x6a4a10,emissiveIntensity:.6});
+  const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.3,0.6,LEN*0.6),gold); doorPanel.position.y=rideH+0.42; g.add(doorPanel);
   const skid=new THREE.Mesh(new THREE.BoxGeometry(WID*0.8,0.14,LEN*0.9),new THREE.MeshStandardMaterial({color:0x0a0a0e,metalness:.6,roughness:.5})); skid.position.y=rideH-0.02; g.add(skid);
   // greenhouse: profile-extruded glass with a raked windshield + rear glass
   const cw=WID-0.3, cabFront=0.5, cabRear=-1.7, roofY=belt+cabH-0.05;
