@@ -3760,7 +3760,7 @@ function makePoliceJeep(){
       c.font='900 34px Arial Black, Arial'; c.fillText('POLICE',128,44); });
     tex.encoding=THREE.sRGBEncoding;
     const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.1,0.52),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
-    decal.position.set(sgn*(WID/2+0.11),rideH+0.4,0.1); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
+    decal.position.set(sgn*(WID/2+0.2),rideH+0.42,0.1); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
   });
   // roof light bar (red + blue pods + glow light)
   const barY=rideH+bodyH+cabH+0.07, barZ=-0.2;
