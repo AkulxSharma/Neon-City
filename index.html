@@ -3699,15 +3699,35 @@ function makePoliceJeep(){
   const bodyMat=new THREE.MeshStandardMaterial({color:0x121722,metalness:.5,roughness:.5});
   const white=new THREE.MeshStandardMaterial({color:0xeef1f6,metalness:.35,roughness:.5});
   const rideH=wheelR+0.16, bodyH=1.0;
-  // chassis + two-tone door panel
-  const lower=new THREE.Mesh(new THREE.BoxGeometry(WID,bodyH,LEN),bodyMat); lower.position.y=rideH+bodyH/2; g.add(lower);
-  const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.05,0.52,LEN*0.66),white); doorPanel.position.y=rideH+0.34; g.add(doorPanel);
+  // shaped chassis: profile-extruded body (sloped bull-nose hood + beveled edges) instead of a plain box
+  const belt=rideH+bodyH, cabH=0.82;
+  const bodyExtrude={depth:WID,bevelEnabled:true,bevelThickness:.05,bevelSize:.06,bevelSegments:3,curveSegments:14};
+  const hoodY=belt-0.26;
+  const bodyShape=new THREE.Shape();
+  bodyShape.moveTo(-L,rideH);
+  bodyShape.lineTo(L-0.14,rideH);
+  bodyShape.quadraticCurveTo(L,rideH,L,rideH+0.34);   // rounded front-bottom corner
+  bodyShape.lineTo(L,hoodY);                           // short vertical grille face
+  bodyShape.quadraticCurveTo(L*0.62,belt,0.25,belt);  // hood sweeps up to the beltline
+  bodyShape.lineTo(-L,belt);                           // beltline back to the rear
+  bodyShape.closePath();
+  const lower=new THREE.Mesh(new THREE.ExtrudeGeometry(bodyShape,bodyExtrude),bodyMat);
+  lower.rotation.y=-Math.PI/2; lower.position.x=WID/2; g.add(lower);
+  // two-tone door panel + underbody skid plate
+  const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.05,0.5,LEN*0.6),white); doorPanel.position.y=rideH+0.34; g.add(doorPanel);
   const skid=new THREE.Mesh(new THREE.BoxGeometry(WID*0.8,0.14,LEN*0.9),new THREE.MeshStandardMaterial({color:0x0a0a0e,metalness:.6,roughness:.5})); skid.position.y=rideH-0.02; g.add(skid);
-  // greenhouse (tinted glass) + roof + corner pillars
-  const cabH=0.82, cabLen=LEN*0.5, cabY=rideH+bodyH+cabH/2-0.02;
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(WID-0.14,cabH,cabLen),glassMat); cab.position.set(0,cabY,-0.2); g.add(cab); g.userData.cab=cab;
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(WID-0.08,0.14,cabLen+0.08),bodyMat); roof.position.set(0,rideH+bodyH+cabH-0.03,-0.2); g.add(roof);
-  [[-1,1],[1,1],[-1,-1],[1,-1]].forEach(([sx,sz])=>{ const post=new THREE.Mesh(new THREE.BoxGeometry(0.1,cabH,0.1),bodyMat); post.position.set(sx*(WID/2-0.11),cabY,-0.2+sz*(cabLen/2-0.08)); g.add(post); });
+  // greenhouse: profile-extruded glass with a raked windshield + rear glass
+  const cw=WID-0.14, cabFront=0.7, cabRear=-L+0.55, roofY=belt+cabH-0.05;
+  const roofF=cabFront-0.45, roofR=cabRear+0.3;
+  const cabShape=new THREE.Shape();
+  cabShape.moveTo(cabFront,belt-0.02);
+  cabShape.lineTo(roofF,roofY);          // raked windshield
+  cabShape.lineTo(roofR,roofY);          // roofline
+  cabShape.lineTo(cabRear,belt-0.02);    // rear glass
+  cabShape.closePath();
+  const cab=new THREE.Mesh(new THREE.ExtrudeGeometry(cabShape,{depth:cw,bevelEnabled:true,bevelThickness:.03,bevelSize:.04,bevelSegments:2,curveSegments:8}),glassMat);
+  cab.rotation.y=-Math.PI/2; cab.position.x=cw/2; g.add(cab); g.userData.cab=cab;
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(cw-0.06,0.12,roofF-roofR),bodyMat); roof.position.set(0,roofY,(roofF+roofR)/2); g.add(roof);
   // huge wheels + fat arches
   const archMat=new THREE.MeshStandardMaterial({color:0x08080c,metalness:.4,roughness:.6});
   const ax=L*0.64, half=WID/2+0.03, spins=[], fw=[];
