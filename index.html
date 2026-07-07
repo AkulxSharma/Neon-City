@@ -3700,15 +3700,36 @@ function makePoliceJeep(){
   const bodyMat=new THREE.MeshStandardMaterial({color:0x121722,metalness:.5,roughness:.5});
   const white=new THREE.MeshStandardMaterial({color:0xeef1f6,metalness:.35,roughness:.5});
   const rideH=wheelR+0.16, bodyH=1.0;
-  // chassis + two-tone door panel
-  const lower=new THREE.Mesh(new THREE.BoxGeometry(WID,bodyH,LEN),bodyMat); lower.position.y=rideH+bodyH/2; g.add(lower);
-  const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.05,0.52,LEN*0.66),white); doorPanel.position.y=rideH+0.34; g.add(doorPanel);
+  // shaped chassis: profile-extruded body (sloped bull-nose hood + beveled edges) instead of a plain box
+  const belt=rideH+bodyH, cabH=0.82;
+  const bodyExtrude={depth:WID,bevelEnabled:true,bevelThickness:.05,bevelSize:.06,bevelSegments:3,curveSegments:14};
+  const hoodY=belt-0.26;
+  const bodyShape=new THREE.Shape();
+  bodyShape.moveTo(-L,rideH);
+  bodyShape.lineTo(L-0.14,rideH);
+  bodyShape.quadraticCurveTo(L,rideH,L,rideH+0.34);   // rounded front-bottom corner
+  bodyShape.lineTo(L,hoodY);                           // short vertical grille face
+  bodyShape.quadraticCurveTo(L*0.62,belt,0.25,belt);  // hood sweeps up to the beltline
+  bodyShape.lineTo(-L,belt);                           // beltline back to the rear
+  bodyShape.closePath();
+  const lower=new THREE.Mesh(new THREE.ExtrudeGeometry(bodyShape,bodyExtrude),bodyMat);
+  lower.rotation.y=-Math.PI/2; lower.position.x=WID/2; g.add(lower);
+  // two-tone door panel (state-trooper gold) + underbody skid plate
+  const gold=new THREE.MeshStandardMaterial({color:0xf2c230,metalness:.3,roughness:.5,emissive:0x6a4a10,emissiveIntensity:.6});
+  const doorPanel=new THREE.Mesh(new THREE.BoxGeometry(WID+0.3,0.6,LEN*0.6),gold); doorPanel.position.y=rideH+0.42; g.add(doorPanel);
   const skid=new THREE.Mesh(new THREE.BoxGeometry(WID*0.8,0.14,LEN*0.9),new THREE.MeshStandardMaterial({color:0x0a0a0e,metalness:.6,roughness:.5})); skid.position.y=rideH-0.02; g.add(skid);
-  // greenhouse (tinted glass) + roof + corner pillars
-  const cabH=0.82, cabLen=LEN*0.5, cabY=rideH+bodyH+cabH/2-0.02;
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(WID-0.14,cabH,cabLen),glassMat); cab.position.set(0,cabY,-0.2); g.add(cab); g.userData.cab=cab;
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(WID-0.08,0.14,cabLen+0.08),bodyMat); roof.position.set(0,rideH+bodyH+cabH-0.03,-0.2); g.add(roof);
-  [[-1,1],[1,1],[-1,-1],[1,-1]].forEach(([sx,sz])=>{ const post=new THREE.Mesh(new THREE.BoxGeometry(0.1,cabH,0.1),bodyMat); post.position.set(sx*(WID/2-0.11),cabY,-0.2+sz*(cabLen/2-0.08)); g.add(post); });
+  // greenhouse: profile-extruded glass with a raked windshield + rear glass
+  const cw=WID-0.3, cabFront=0.5, cabRear=-1.7, roofY=belt+cabH-0.05;
+  const roofF=-0.05, roofR=-1.4;
+  const cabShape=new THREE.Shape();
+  cabShape.moveTo(cabFront,belt-0.02);
+  cabShape.lineTo(roofF,roofY);          // raked windshield
+  cabShape.lineTo(roofR,roofY);          // roofline
+  cabShape.lineTo(cabRear,belt-0.02);    // rear glass
+  cabShape.closePath();
+  const cab=new THREE.Mesh(new THREE.ExtrudeGeometry(cabShape,{depth:cw,bevelEnabled:true,bevelThickness:.03,bevelSize:.04,bevelSegments:2,curveSegments:8}),glassMat);
+  cab.rotation.y=-Math.PI/2; cab.position.x=cw/2; g.add(cab); g.userData.cab=cab;
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(cw-0.1,0.12,roofF-roofR),bodyMat); roof.position.set(0,roofY,(roofF+roofR)/2); g.add(roof);
   // huge wheels + fat arches
   const archMat=new THREE.MeshStandardMaterial({color:0x08080c,metalness:.4,roughness:.6});
   const ax=L*0.64, half=WID/2+0.03, spins=[], fw=[];
@@ -3731,14 +3752,16 @@ function makePoliceJeep(){
     const hl=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.26,0.08),lightOn); hl.position.set(lx,rideH+0.6,L+0.02); g.add(hl);
     const tl=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.32,0.06),tailOn); tl.position.set(lx,rideH+0.6,-L-0.02); g.add(tl);
   });
-  // livery: blue side stripe + POLICE decal on each door
-  const stripeMat=new THREE.MeshBasicMaterial({color:0x12245e});
+  // livery: gold trooper stripe + "STATE POLICE" decal on each door
+  const stripeMat=new THREE.MeshBasicMaterial({color:0xd8b44a});
   [[-1,false],[1,true]].forEach(([sgn,mir])=>{
-    const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.16,LEN*0.78),stripeMat); stripe.position.set(sgn*(WID/2+0.03),rideH+0.74,0); g.add(stripe);
-    const tex=canvasTex(256,64,c=>{ c.clearRect(0,0,256,64); if(mir){c.translate(256,0);c.scale(-1,1);} c.fillStyle='#16386f'; c.font='900 34px Arial Black, Arial'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('POLICE',128,34); });
+    const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.09,LEN*0.78),stripeMat); stripe.position.set(sgn*(WID/2+0.03),rideH+0.86,0); g.add(stripe);
+    const tex=canvasTex(256,64,c=>{ c.clearRect(0,0,256,64); if(mir){c.translate(256,0);c.scale(-1,1);} c.fillStyle='#0b1836'; c.textAlign='center'; c.textBaseline='middle';
+      c.font='800 20px Arial'; c.fillText('STATE',128,16);
+      c.font='900 34px Arial Black, Arial'; c.fillText('POLICE',128,44); });
     tex.encoding=THREE.sRGBEncoding;
-    const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.5),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
-    decal.position.set(sgn*(WID/2+0.04),rideH+0.52,0.1); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
+    const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.1,0.52),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+    decal.position.set(sgn*(WID/2+0.2),rideH+0.42,0.1); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
   });
   // roof light bar (red + blue pods + glow light)
   const barY=rideH+bodyH+cabH+0.07, barZ=-0.2;
