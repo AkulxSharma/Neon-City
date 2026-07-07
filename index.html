@@ -3950,7 +3950,7 @@ for(let i=0;i<4;i++){
   const h=t.axis==='x'?(t.dirSign>0?Math.PI/2:-Math.PI/2):(t.dirSign>0?0:Math.PI);
   // police pursuit jeep tops out around 300 mph (134 m/s ≈ 482 km/h); tanky, never ejects
   const nv=addVehicle(g, kind==='ambulance'?'CITY AMBULANCE':'POLICE PURSUIT', kind==='ambulance'?60:134, kind==='ambulance'?26:90, false, x, z, h, t);
-  if(kind!=='ambulance') nv.noEject=true;
+  if(kind!=='ambulance'){ nv.noEject=true; nv.steerRamp=5.5; nv.turnGain=1.9; }  // police: fast steer ramp + sharper turn angle
   attachDriver(nv);
 }
 
@@ -4834,8 +4834,29 @@ function tick(now){
 
     // ---- steering: speed-sensitive authority, no pirouetting when parked ----
     const spd0=Math.abs(v.speed);
+    // Cybertruck-style progressive steering: the wheel angle RAMPS toward the
+    // held direction instead of snapping to full lock. A quick tap barely turns;
+    // holding the key winds the angle up to full. The ramp gets slower the faster
+    // you go, so at high speed you must hold longer to reach a sharp turn — full
+    // lock is always reachable, it just takes sustained input (no twitchy spinouts).
+    const rampBase=v.steerRamp||3.2;                 // higher = quicker to full lock
+    // slows as speed climbs, but floored so very fast cars (police, 134 m/s) never
+    // collapse to unresponsive — you still need to hold, it just always bites.
+    const ramp=Math.max(rampBase/(1+spd0*0.05), rampBase*0.55);
+    let sa=v.steerAng||0;
+    const minA=v.steerMin||0.32;                     // instant baseline angle on any press
+    if(hb){ sa=steer; }                              // handbrake = instant, for drifts
+    else if(steer!==0){
+      // tap = small INSTANT angle; snap to the baseline right away (also on a
+      // direction flip), then keep holding to ramp the angle up to full lock.
+      if(steer>0 && sa<minA) sa=minA;
+      else if(steer<0 && sa>-minA) sa=-minA;
+      sa+=(steer-sa)*clamp(ramp*dt,0,1);
+    }
+    else{ sa*=clamp(1-8*dt,0,1); }                   // recenter quickly on release
+    v.steerAng=sa;
     const steerAuth=clamp(spd0/6,0,1)/(1+spd0*0.03);
-    const turn=steer*(hb?3.5:2.7)*steerAuth*dt*Math.sign(v.speed||1);
+    const turn=sa*(hb?3.5:2.7)*steerAuth*(v.turnGain||1)*dt*Math.sign(v.speed||1);
     v.h+=turn;
 
     // ---- carry momentum: velocity lives in the car frame (forward + lateral).
