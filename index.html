@@ -2564,46 +2564,78 @@ for(let i=0;i<20;i++){
 }
 
 // ---------- infinite ground: one repeating street tile that follows the player ----------
-const tileTex = canvasTex(512,512,g=>{
-  const S=512/CELL, px=v=>v*S;
-  g.fillStyle='#5a5f6a'; g.fillRect(0,0,512,512);
-  g.strokeStyle='rgba(0,0,0,.15)'; g.lineWidth=1;
-  for(let u=0;u<=CELL;u+=5){ g.beginPath(); g.moveTo(px(u),0); g.lineTo(px(u),512); g.stroke(); g.beginPath(); g.moveTo(0,px(u)); g.lineTo(512,px(u)); g.stroke(); }
-  for(let i=0;i<1200;i++){ g.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`; g.fillRect(Math.random()*512,Math.random()*512,1+Math.random()*3,1+Math.random()*3); }
-  for(let i=0;i<300;i++){ g.fillStyle=`rgba(255,255,255,${Math.random()*0.04})`; g.fillRect(Math.random()*512,Math.random()*512,2,2); }
-  g.strokeStyle='#787e8a'; g.lineWidth=px(2.4);
-  g.strokeRect(px(11),px(11),px(78),px(78));
-  g.fillStyle='#22242a';
-  g.fillRect(0,0,px(10),512); g.fillRect(px(90),0,px(10),512);
-  g.fillRect(0,0,512,px(10)); g.fillRect(0,px(90),512,px(10));
-  for(let i=0;i<400;i++){
-    const t=Math.random()*CELL, o=Math.random()<0.5?Math.random()*9:91+Math.random()*9;
-    g.fillStyle=`rgba(${Math.random()<0.5?255:0},${Math.random()<0.5?255:0},${Math.random()<0.5?255:0},${Math.random()*0.03})`;
-    if(Math.random()<0.5) g.fillRect(px(o),px(t),2+Math.random()*4,4+Math.random()*8); else g.fillRect(px(t),px(o),4+Math.random()*8,2+Math.random()*4);
-  }
-  for(let i=0;i<6;i++){
-    const rx=Math.random()*8+1, ry=Math.random()*CELL;
-    g.fillStyle='rgba(40,35,30,.08)'; g.beginPath(); g.ellipse(px(rx),px(ry),px(1.5),px(0.8),0,0,7); g.fill();
-    g.fillStyle='rgba(40,35,30,.08)'; g.beginPath(); g.ellipse(px(92+rx-1),px(ry),px(1.5),px(0.8),0,0,7); g.fill();
-  }
-  g.strokeStyle='#d8b64f'; g.lineWidth=px(0.38); g.setLineDash([26,38]);
-  for(const e of [0,512]){
-    g.beginPath(); g.moveTo(e,0); g.lineTo(e,512); g.stroke();
-    g.beginPath(); g.moveTo(0,e); g.lineTo(512,e); g.stroke();
+const tileTex = canvasTex(1024,1024,g=>{
+  const SIZE=1024, S=SIZE/CELL, px=v=>v*S;
+  // ---------- block interior: real concrete sidewalk ----------
+  g.fillStyle='#82868d'; g.fillRect(0,0,SIZE,SIZE);
+  // broad tonal patchiness (staining, wear, sun-bleach)
+  for(let i=0;i<34;i++){ const gx=Math.random()*SIZE, gy=Math.random()*SIZE, r=60+Math.random()*160, dk=Math.random()<0.5;
+    const rad=g.createRadialGradient(gx,gy,4,gx,gy,r);
+    rad.addColorStop(0,`rgba(${dk?46:236},${dk?48:238},${dk?54:240},${0.04+Math.random()*0.05})`); rad.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=rad; g.fillRect(0,0,SIZE,SIZE); }
+  // fine concrete grain
+  for(let i=0;i<5200;i++){ const d=Math.random()<0.5; g.fillStyle=`rgba(${d?44:255},${d?46:255},${d?54:255},${Math.random()*0.05})`; g.fillRect(Math.random()*SIZE,Math.random()*SIZE,2,2); }
+  // sidewalk slab joints (expansion lines)
+  g.strokeStyle='rgba(18,20,24,.34)'; g.lineWidth=2;
+  for(let u=15;u<=85;u+=5){ g.beginPath(); g.moveTo(px(u),0); g.lineTo(px(u),SIZE); g.stroke(); g.beginPath(); g.moveTo(0,px(u)); g.lineTo(SIZE,px(u)); g.stroke(); }
+
+  // ---------- roads: real asphalt on the edge strips ----------
+  const road=(x,y,w,h,horiz)=>{
+    g.fillStyle='#23252a'; g.fillRect(x,y,w,h);
+    // colour-variation blotches (patched repairs, aging)
+    for(let i=0;i<Math.max(8,(w*h)/1600|0);i++){ const bx=x+Math.random()*w,by=y+Math.random()*h,r=10+Math.random()*30,dk=Math.random()<0.6;
+      const rad=g.createRadialGradient(bx,by,1,bx,by,r); rad.addColorStop(0,`rgba(${dk?12:64},${dk?13:66},${dk?16:70},.22)`); rad.addColorStop(1,'rgba(0,0,0,0)');
+      g.fillStyle=rad; g.fillRect(x,y,w,h); }
+    // aggregate speckle (the stones in the asphalt)
+    const n=(w*h)/22|0;
+    for(let i=0;i<n;i++){ const v=(26+Math.random()*74)|0; g.fillStyle=`rgba(${v},${v},${v+3},${0.3+Math.random()*0.45})`; g.fillRect(x+Math.random()*w,y+Math.random()*h,1.5,1.5); }
+    // wheel-path polish: darker, smoother bands where tires ride
+    g.fillStyle='rgba(6,7,10,.26)';
+    if(horiz){ g.fillRect(x,y+h*0.26,w,h*0.16); g.fillRect(x,y+h*0.56,w,h*0.16); }
+    else { g.fillRect(x+w*0.26,y,w*0.16,h); g.fillRect(x+w*0.56,y,w*0.16,h); }
+    // oil drip stains
+    for(let i=0;i<4;i++){ const ox=x+Math.random()*w, oy=y+Math.random()*h, r=5+Math.random()*12;
+      const rad=g.createRadialGradient(ox,oy,1,ox,oy,r); rad.addColorStop(0,'rgba(0,0,0,.32)'); rad.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=rad; g.fillRect(ox-r,oy-r,r*2,r*2); }
+    // hairline cracks
+    g.strokeStyle='rgba(8,8,10,.5)'; g.lineWidth=1.2;
+    for(let i=0;i<3;i++){ g.beginPath(); let cx=x+Math.random()*w, cy=y+Math.random()*h; g.moveTo(cx,cy);
+      for(let s=0;s<5;s++){ cx+=(Math.random()-0.5)*40; cy+=(Math.random()-0.5)*40; g.lineTo(cx,cy);} g.stroke(); }
+  };
+  road(0,0,px(10),SIZE,false);
+  road(px(90),0,px(10),SIZE,false);
+  road(0,0,SIZE,px(10),true);
+  road(0,px(90),SIZE,px(10),true);
+
+  // ---------- concrete curbs between sidewalk and road ----------
+  const curb=(x,y,w,h,vert)=>{ g.fillStyle='#b4b8c0'; g.fillRect(x,y,w,h);
+    g.fillStyle='rgba(0,0,0,.3)'; if(vert) g.fillRect(x+w,y,3,h); else g.fillRect(x,y+h,w,3);
+    g.fillStyle='rgba(255,255,255,.12)'; g.fillRect(x,y,vert?2:w,vert?h:2); };
+  curb(px(10)-3,0,3,SIZE,true); curb(px(90),0,3,SIZE,true);
+  curb(0,px(10)-3,SIZE,3,false); curb(0,px(90),SIZE,3,false);
+
+  // ---------- lane markings (weathered) ----------
+  // centre double-yellow along the road centreline (the shared tile edge)
+  g.strokeStyle='rgba(206,172,64,.82)'; g.lineWidth=px(0.34); g.setLineDash([px(3.4),px(4)]);
+  for(const e of [0,SIZE]){
+    g.beginPath(); g.moveTo(e,0); g.lineTo(e,SIZE); g.stroke();
+    g.beginPath(); g.moveTo(0,e); g.lineTo(SIZE,e); g.stroke();
   }
   g.setLineDash([]);
-  g.strokeStyle='rgba(255,255,255,.55)'; g.lineWidth=px(0.32);
-  for(const o of [8.6,91.4]){
-    g.beginPath(); g.moveTo(px(o),0); g.lineTo(px(o),512); g.stroke();
-    g.beginPath(); g.moveTo(0,px(o)); g.lineTo(512,px(o)); g.stroke();
+  // solid white edge lines near the curbs
+  g.strokeStyle='rgba(224,226,230,.62)'; g.lineWidth=px(0.3);
+  for(const o of [8.4,91.6]){
+    g.beginPath(); g.moveTo(px(o),0); g.lineTo(px(o),SIZE); g.stroke();
+    g.beginPath(); g.moveTo(0,px(o)); g.lineTo(SIZE,px(o)); g.stroke();
   }
-  g.strokeStyle='rgba(255,255,255,.18)'; g.lineWidth=px(0.18); g.setLineDash([14,22]);
-  for(const o of [4,96]){
-    g.beginPath(); g.moveTo(px(o),0); g.lineTo(px(o),512); g.stroke();
-    g.beginPath(); g.moveTo(0,px(o)); g.lineTo(512,px(o)); g.stroke();
+  // faded dashed lane divider
+  g.strokeStyle='rgba(210,212,216,.2)'; g.lineWidth=px(0.16); g.setLineDash([px(2.6),px(4)]);
+  for(const o of [3.6,96.4]){
+    g.beginPath(); g.moveTo(px(o),0); g.lineTo(px(o),SIZE); g.stroke();
+    g.beginPath(); g.moveTo(0,px(o)); g.lineTo(SIZE,px(o)); g.stroke();
   }
   g.setLineDash([]);
-  g.fillStyle='rgba(255,255,255,.55)';
+  // ---------- crosswalks (zebra bars) at the corners ----------
+  g.fillStyle='rgba(226,228,232,.66)';
   for(const ex of [0,100]) for(const ez of [0,100]){
     for(let u=-8;u<=8;u+=2.4){
       const sx=ex+u, sz=ez+(ez===0?11.4:-14);
@@ -2612,12 +2644,12 @@ const tileTex = canvasTex(512,512,g=>{
       if(hz>=-1&&hz<=101) g.fillRect(px(hx),px(hz-0.7),px(2.6),px(1.4));
     }
   }
-  g.fillStyle='#1b1d22'; g.beginPath(); g.arc(px(4.5),px(38),px(0.65),0,7); g.fill();
-  g.strokeStyle='#3a3d44'; g.lineWidth=2; g.beginPath(); g.arc(px(4.5),px(38),px(0.65),0,7); g.stroke();
-  g.fillStyle='#1b1d22'; g.beginPath(); g.arc(px(63),px(95.5),px(0.65),0,7); g.fill();
-  g.strokeStyle='#3a3d44'; g.beginPath(); g.arc(px(63),px(95.5),px(0.65),0,7); g.stroke();
-  g.fillStyle='#1b1d22'; g.beginPath(); g.arc(px(95),px(55),px(0.55),0,7); g.fill();
-  g.strokeStyle='#3a3d44'; g.lineWidth=1.5; g.beginPath(); g.arc(px(95),px(55),px(0.55),0,7); g.stroke();
+  // ---------- manhole covers & storm drains ----------
+  const manhole=(u,v,r)=>{ g.fillStyle='#1a1c21'; g.beginPath(); g.arc(px(u),px(v),px(r),0,7); g.fill();
+    g.strokeStyle='#43464d'; g.lineWidth=2.4; g.beginPath(); g.arc(px(u),px(v),px(r),0,7); g.stroke();
+    g.strokeStyle='rgba(92,96,102,.5)'; g.lineWidth=1.2; g.beginPath(); g.arc(px(u),px(v),px(r*0.68),0,7); g.stroke();
+    for(let a=0;a<8;a++){ const an=a*Math.PI/4; g.strokeStyle='rgba(70,74,80,.4)'; g.beginPath(); g.moveTo(px(u)+Math.cos(an)*px(r*0.3),px(v)+Math.sin(an)*px(r*0.3)); g.lineTo(px(u)+Math.cos(an)*px(r*0.62),px(v)+Math.sin(an)*px(r*0.62)); g.stroke(); } };
+  manhole(4.5,38,0.72); manhole(63,95.5,0.72); manhole(95,55,0.6); manhole(38,4.5,0.6);
 });
 tileTex.encoding=THREE.sRGBEncoding;
 tileTex.wrapS=tileTex.wrapT=THREE.RepeatWrapping;
@@ -2633,68 +2665,103 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(GROUND_SPAN,GROUND_SPAN), ne
 ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
 
 // ---------- building materials ----------
-function facadeTexPair(wall){
+function facadeTexPair(wall,glassHue){
   const R=14,C=10,lit=[];
   for(let i=0;i<R*C;i++) lit.push(Math.random()<0.55);
-  const day=canvasTex(512,512,g=>{
-    g.fillStyle=wall; g.fillRect(0,0,512,512);
-    for(let i=0;i<8;i++){
-      g.fillStyle=`rgba(0,0,0,${0.02+Math.random()*0.04})`;
-      g.fillRect(0,i*64,512,64);
-    }
-    for(let i=0;i<800;i++){ g.fillStyle=`rgba(0,0,0,${Math.random()*0.08})`; g.fillRect(Math.random()*512,Math.random()*512,2+Math.random()*2,2+Math.random()*2); }
+  const gh=glassHue==null?208:glassHue;
+  const day=canvasTex(1024,1024,g=>{
+    const CW=1024/C, RH=1024/R;
+    g.fillStyle=wall; g.fillRect(0,0,1024,1024);
+    // broad weathering: sun-bleached tops, grime-darkened lower half
+    const wg=g.createLinearGradient(0,0,0,1024);
+    wg.addColorStop(0,'rgba(255,255,255,.06)'); wg.addColorStop(0.5,'rgba(0,0,0,0)'); wg.addColorStop(1,'rgba(0,0,0,.14)');
+    g.fillStyle=wg; g.fillRect(0,0,1024,1024);
+    // stone/panel courses: faint horizontal joints every floor
+    for(let r=0;r<=R;r++){ g.fillStyle='rgba(0,0,0,.12)'; g.fillRect(0,r*RH-1,1024,2); g.fillStyle='rgba(255,255,255,.04)'; g.fillRect(0,r*RH+1,1024,1); }
+    // vertical piers between window columns (structure)
+    for(let c=0;c<=C;c++){ g.fillStyle='rgba(0,0,0,.08)'; g.fillRect(c*CW-2,0,4,1024); }
+    // material grain
+    for(let i=0;i<2600;i++){ g.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`; g.fillRect(Math.random()*1024,Math.random()*1024,2+Math.random()*3,2+Math.random()*3); }
+    for(let i=0;i<700;i++){ g.fillStyle=`rgba(255,255,255,${Math.random()*0.03})`; g.fillRect(Math.random()*1024,Math.random()*1024,2,2); }
+    // windows
+    const ww=CW*0.66, wh=RH*0.6;
     for(let r=0;r<R;r++) for(let c=0;c<C;c++){
-      const x=6+c*50, y=6+r*36;
-      g.fillStyle='rgba(0,0,0,.4)'; g.fillRect(x+2,y+2,38,24);
-      const wb=15+Math.random()*12;
-      g.fillStyle=`hsl(${210+Math.random()*10},${28+Math.random()*10}%,${wb}%)`;
-      g.fillRect(x,y,38,24);
-      g.fillStyle='rgba(160,190,220,.12)'; g.fillRect(x,y,38,6);
-      g.fillStyle='rgba(0,0,0,.18)'; g.fillRect(x,y+22,38,2);
-      g.strokeStyle='rgba(60,70,80,.25)'; g.lineWidth=1;
-      g.strokeRect(x,y,38,24);
-      if(Math.random()<0.3){ g.fillStyle='rgba(0,0,0,.12)'; g.fillRect(x+17,y,4,24); }
+      const x=c*CW+(CW-ww)/2, y=r*RH+(RH-wh)/2;
+      // recessed reveal / dark frame
+      g.fillStyle='rgba(0,0,0,.5)'; g.fillRect(x-3,y-3,ww+6,wh+6);
+      // glass: vertical gradient — sky reflection up top, dark interior below
+      const gr=g.createLinearGradient(x,y,x,y+wh);
+      const l1=30+Math.random()*12, l2=16+Math.random()*8;
+      gr.addColorStop(0,`hsl(${gh},34%,${l1+8}%)`);
+      gr.addColorStop(0.45,`hsl(${gh},28%,${l1-4}%)`);
+      gr.addColorStop(0.55,`hsl(${gh},24%,${l2+6}%)`);
+      gr.addColorStop(1,`hsl(${gh},20%,${l2}%)`);
+      g.fillStyle=gr; g.fillRect(x,y,ww,wh);
+      // diagonal sky glint
+      g.fillStyle='rgba(200,222,244,.12)'; g.beginPath(); g.moveTo(x,y); g.lineTo(x+ww*0.45,y); g.lineTo(x,y+wh*0.5); g.closePath(); g.fill();
+      // occasional lit/curtained interior for variety
+      if(Math.random()<0.16){ g.fillStyle='rgba(240,224,180,.16)'; g.fillRect(x,y+wh*0.4,ww,wh*0.6); }
+      // aluminium frame + mullions
+      g.strokeStyle='rgba(150,158,168,.4)'; g.lineWidth=2; g.strokeRect(x,y,ww,wh);
+      g.fillStyle='rgba(24,28,34,.55)'; g.fillRect(x+ww/2-1,y,2,wh);
+      // sill highlight
+      g.fillStyle='rgba(255,255,255,.12)'; g.fillRect(x-3,y+wh+2,ww+6,2);
+      // grime streaks bleeding down from the sill
+      if(Math.random()<0.55){ const sg=g.createLinearGradient(x,y+wh,x,y+wh+RH*0.5); sg.addColorStop(0,'rgba(0,0,0,.16)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=sg; g.fillRect(x+ww*0.15,y+wh+2,ww*0.7,RH*0.5); }
     }
-    g.fillStyle='rgba(0,0,0,.15)'; g.fillRect(0,0,512,4); g.fillRect(0,508,512,4);
+    // corner ambient-occlusion vignette
+    g.fillStyle='rgba(0,0,0,.2)'; g.fillRect(0,0,1024,5); g.fillRect(0,1019,1024,5); g.fillRect(0,0,5,1024); g.fillRect(1019,0,5,1024);
   });
-  const glow=canvasTex(512,512,g=>{
-    g.fillStyle='#000'; g.fillRect(0,0,512,512);
+  const glow=canvasTex(1024,1024,g=>{
+    const CW=1024/C, RH=1024/R, ww=CW*0.66, wh=RH*0.6;
+    g.fillStyle='#000'; g.fillRect(0,0,1024,1024);
     for(let r=0;r<R;r++) for(let c=0;c<C;c++){
       if(!lit[r*C+c]) continue;
-      const hue=36+Math.random()*18, lum=48+Math.random()*22;
-      g.fillStyle=`hsl(${hue},82%,${lum}%)`;
-      g.fillRect(6+c*50,6+r*36,38,24);
-      g.fillStyle=`hsla(${hue},90%,${lum+15}%,.5)`;
-      g.fillRect(6+c*50+4,6+r*36+2,30,8);
+      const x=c*CW+(CW-ww)/2, y=r*RH+(RH-wh)/2;
+      const hue=36+Math.random()*18, lum=46+Math.random()*22;
+      g.fillStyle=`hsl(${hue},80%,${lum}%)`; g.fillRect(x,y,ww,wh);
+      g.fillStyle=`hsla(${hue},90%,${lum+16}%,.55)`; g.fillRect(x+3,y+2,ww-6,wh*0.35);
     }
   });
   return [day,glow];
 }
 const facadeMats=[];
-for(const wall of ['#3a4150','#4a4550','#524d42','#39485a','#44505e','#3e3a48']){
-  const [t,e]=facadeTexPair(wall);
+// realistic building materials: warm limestone, concrete, brick, blue-glass office, sandstone, dark modern
+for(const [wall,gh] of [['#b8b2a4',210],['#8c9098',206],['#9a5f48',24],['#7c8ea0',212],['#c2b79c',40],['#5a5e68',214],['#a89a86',30],['#6e7a86',208]]){
+  const [t,e]=facadeTexPair(wall,gh);
   t.encoding=THREE.sRGBEncoding; t.wrapS=t.wrapT=THREE.RepeatWrapping;
   e.encoding=THREE.sRGBEncoding; e.wrapS=e.wrapT=THREE.RepeatWrapping;
-  facadeMats.push(new THREE.MeshStandardMaterial({map:t,bumpMap:t,bumpScale:0.035,roughness:.85,metalness:.05,emissive:0xffffff,emissiveMap:e,emissiveIntensity:0}));
+  facadeMats.push(new THREE.MeshStandardMaterial({map:t,bumpMap:t,bumpScale:0.045,roughness:.82,metalness:.05,emissive:0xffffff,emissiveMap:e,emissiveIntensity:0}));
 }
 // glass curtain-wall: reflective panels split by mullions, with a matching lit-window night map
-const glassWinTex=canvasTex(256,256,g=>{
-  g.fillStyle='#33506a'; g.fillRect(0,0,256,256);
-  for(let y=0;y<256;y+=16) for(let x=0;x<256;x+=16){
-    const b=48+Math.random()*70; g.fillStyle=`rgb(${(b*0.55)|0},${(b*0.85)|0},${(b+46)|0})`; g.fillRect(x+1,y+1,14,14);
-    g.fillStyle='rgba(255,255,255,.10)'; g.fillRect(x+1,y+1,14,4);   // top-of-pane sky reflection
+const glassWinTex=canvasTex(512,512,g=>{
+  // sky-to-street reflection gradient across the whole curtain wall
+  const bg=g.createLinearGradient(0,0,0,512);
+  bg.addColorStop(0,'#6f9cc4'); bg.addColorStop(0.4,'#4a7194'); bg.addColorStop(0.62,'#33506a'); bg.addColorStop(1,'#20384c');
+  g.fillStyle=bg; g.fillRect(0,0,512,512);
+  const P=16;
+  for(let y=0;y<512;y+=P) for(let x=0;x<512;x+=P){
+    // each pane reflects a slightly different slice of sky/adjacent towers
+    const t=y/512, base=0.5+Math.sin((x*0.7+y*1.3)*0.05)*0.12+(Math.random()-0.5)*0.14;
+    const r=(70+ (1-t)*120)*base, gg=(100+(1-t)*110)*base, b=(140+(1-t)*90)*base;
+    g.fillStyle=`rgb(${Math.min(255,r)|0},${Math.min(255,gg)|0},${Math.min(255,b)|0})`; g.fillRect(x+1,y+1,P-2,P-2);
+    // bright sky glint on the upper-left of each pane
+    g.fillStyle='rgba(255,255,255,.14)'; g.fillRect(x+1,y+1,P-2,4);
+    g.fillStyle='rgba(0,0,0,.12)'; g.fillRect(x+1,y+P-4,P-2,3);   // shaded bottom
   }
-  g.strokeStyle='rgba(8,14,22,.85)'; g.lineWidth=2;
-  for(let i=0;i<=256;i+=16){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,256); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(256,i); g.stroke(); }
+  // dark mullion grid
+  g.strokeStyle='rgba(10,16,24,.88)'; g.lineWidth=2.4;
+  for(let i=0;i<=512;i+=P){ g.beginPath(); g.moveTo(i,0); g.lineTo(i,512); g.stroke(); g.beginPath(); g.moveTo(0,i); g.lineTo(512,i); g.stroke(); }
 });
-const glassLitTex=canvasTex(256,256,g=>{
-  g.fillStyle='#000'; g.fillRect(0,0,256,256);
-  for(let y=0;y<256;y+=16) for(let x=0;x<256;x+=16){
+const glassLitTex=canvasTex(512,512,g=>{
+  g.fillStyle='#000'; g.fillRect(0,0,512,512);
+  for(let y=0;y<512;y+=16) for(let x=0;x<512;x+=16){
     if(Math.random()<0.4){ g.fillStyle=`hsl(${38+Math.random()*16},80%,${45+Math.random()*22}%)`; g.fillRect(x+2,y+2,12,12); }
   }
 });
 for(const tx of [glassWinTex,glassLitTex]){ tx.encoding=THREE.sRGBEncoding; tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(3,6); }
-const glassTowerMats=[0x2e4a5c,0x35415e,0x274452,0x3a5a6e].map(c=>new THREE.MeshStandardMaterial({map:glassWinTex,color:c,metalness:1,roughness:0.1,emissive:0xffffff,emissiveMap:glassLitTex,emissiveIntensity:0}));
+const glassTowerMats=[0x8fb0c8,0x9aa8c4,0x7fa8be,0xa2bcd0].map(c=>new THREE.MeshStandardMaterial({map:glassWinTex,color:c,metalness:1,roughness:0.08,envMapIntensity:0.7,emissive:0xffffff,emissiveMap:glassLitTex,emissiveIntensity:0}));
 const roofMat = new THREE.MeshLambertMaterial({color:0x15161c});
 
 // shared street-furniture assets
