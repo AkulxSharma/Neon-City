@@ -3775,7 +3775,7 @@ function makePoliceJeep(){
   const rideH=wheelR+0.16, bodyH=1.0;
   // shaped chassis: profile-extruded body (sloped bull-nose hood + beveled edges) instead of a plain box
   const belt=rideH+bodyH, cabH=0.82;
-  const bodyExtrude={depth:WID,bevelEnabled:true,bevelThickness:.05,bevelSize:.06,bevelSegments:3,curveSegments:14};
+  const bodyExtrude={depth:WID,bevelEnabled:true,bevelThickness:.1,bevelSize:.13,bevelSegments:5,curveSegments:18};
   const hoodY=belt-0.26;
   const bodyShape=new THREE.Shape();
   bodyShape.moveTo(-L,rideH);
