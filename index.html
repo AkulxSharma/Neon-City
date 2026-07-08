@@ -3783,10 +3783,7 @@ function makePoliceJeep(){
   bodyShape.quadraticCurveTo(L,rideH,L,rideH+0.34);   // rounded front-bottom corner
   bodyShape.lineTo(L,hoodY);                           // short vertical grille face
   bodyShape.quadraticCurveTo(L*0.62,belt,0.25,belt);  // hood sweeps up to the beltline
-  bodyShape.lineTo(-L+0.3,belt);                       // beltline back toward the rear
-  bodyShape.quadraticCurveTo(-L,belt,-L,belt-0.3);     // rounded rear-top corner
-  bodyShape.lineTo(-L,rideH+0.24);                     // down the tailgate
-  bodyShape.quadraticCurveTo(-L,rideH,-L+0.24,rideH);  // rounded rear-bottom corner -> back to start
+  bodyShape.lineTo(-L,belt);                           // beltline back to the rear
   bodyShape.closePath();
   const lower=new THREE.Mesh(new THREE.ExtrudeGeometry(bodyShape,bodyExtrude),bodyMat);
   lower.rotation.y=-Math.PI/2; lower.position.x=WID/2; g.add(lower);
