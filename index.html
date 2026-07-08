@@ -3823,16 +3823,30 @@ function makePoliceJeep(){
     const hl=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.26,0.08),lightOn); hl.position.set(lx,rideH+0.6,L+0.02); g.add(hl);
     const tl=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.32,0.06),tailOn); tl.position.set(lx,rideH+0.6,-L-0.02); g.add(tl);
   });
-  // livery: gold trooper stripe + "STATE POLICE" decal on each door
-  const stripeMat=new THREE.MeshBasicMaterial({color:0xd8b44a});
-  [[-1,false],[1,true]].forEach(([sgn,mir])=>{
-    const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.09,LEN*0.78),stripeMat); stripe.position.set(sgn*(WID/2+0.03),rideH+0.86,0); g.add(stripe);
-    const tex=canvasTex(256,64,c=>{ c.clearRect(0,0,256,64); if(mir){c.translate(256,0);c.scale(-1,1);} c.fillStyle='#0b1836'; c.textAlign='center'; c.textBaseline='middle';
-      c.font='800 20px Arial'; c.fillText('STATE',128,16);
-      c.font='900 34px Arial Black, Arial'; c.fillText('POLICE',128,44); });
+  // livery: UB-style Police — blue dynamic swoosh + "POLICE" + NY seal, one baked decal per door.
+  // No canvas mirroring: mirroring flipped the text on one side (lateral-invert bug). Both doors draw the
+  // same non-mirrored art so text reads correctly on both sides; layout is centered so it stays symmetric.
+  [-1,1].forEach(sgn=>{
+    const tex=canvasTex(1024,256,c=>{ c.clearRect(0,0,1024,256);
+      // bold blue swoosh sweeping along the lower body (symmetric, full width)
+      c.fillStyle='#0b4fb0';
+      c.beginPath(); c.moveTo(0,150); c.lineTo(1024,150); c.lineTo(1024,216); c.lineTo(0,232); c.closePath(); c.fill();
+      // thin cyan accent line arcing across
+      c.strokeStyle='#37a7f0'; c.lineWidth=9; c.lineCap='round';
+      c.beginPath(); c.moveTo(0,138); c.bezierCurveTo(340,150,684,150,1024,120); c.stroke();
+      // NY state seal (approximated roundel), left of the wordmark
+      c.save(); c.translate(300,118);
+      c.fillStyle='#0a2a5e'; c.beginPath(); c.arc(0,0,60,0,7); c.fill();
+      c.lineWidth=7; c.strokeStyle='#d9b44a'; c.beginPath(); c.arc(0,0,60,0,7); c.stroke();
+      c.fillStyle='#d9b44a'; c.font='900 26px Arial'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('NY',0,2);
+      c.restore();
+      // POLICE wordmark, centered on the door
+      c.fillStyle='#ffffff'; c.textAlign='left'; c.textBaseline='middle';
+      c.font='900 128px "Arial Black", Arial'; c.fillText('POLICE',388,128);
+    });
     tex.encoding=THREE.sRGBEncoding;
-    const decal=new THREE.Mesh(new THREE.PlaneGeometry(2.1,0.52),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
-    decal.position.set(sgn*(WID/2+0.2),rideH+0.42,0.1); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
+    const decal=new THREE.Mesh(new THREE.PlaneGeometry(3.6,0.9),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+    decal.position.set(sgn*(WID/2+0.16),rideH+0.5,0.05); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; g.add(decal);
   });
   // --- cruiser detailing: mirrors, A-pillar spotlight, grille, antenna ---
   const trimMat=new THREE.MeshStandardMaterial({color:0x101014,metalness:.6,roughness:.4});
