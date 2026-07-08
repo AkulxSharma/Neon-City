@@ -57,16 +57,15 @@
   #btn-hand{right:72px;bottom:110px;width:48px;height:48px;font-size:9px}
   #btn-cam{right:16px;top:72px;width:38px;height:38px;font-size:16px}
   #btn-map{right:62px;top:72px;width:38px;height:38px;font-size:16px}
+  /* readability tweaks for any narrow viewport (incl. a half-screen desktop window) */
   @media(max-width:900px),(pointer:coarse){
-    #controls{display:none!important}
-    #touch-controls{display:block}
     #hud .title{font-size:12px;letter-spacing:2px}
     #clock{font-size:11px}
     #speedo{right:auto;left:50%;transform:translateX(-50%);bottom:12px;padding:6px 14px;border-radius:10px}
     #speedo .num{font-size:36px}
-    #minimap{width:100px;height:100px;bottom:175px;right:10px}
-    #maphint{bottom:280px;right:10px;width:104px;font-size:9px}
-    #camsel{top:auto;bottom:175px;left:10px;gap:3px}
+    #minimap{width:100px;height:100px;right:10px}
+    #maphint{right:10px;width:104px;font-size:9px}
+    #camsel{left:10px;gap:3px}
     #camsel button{font-size:9px;padding:3px 6px}
     #waypoint{font-size:11px;padding:4px 10px}
     #hint{font-size:13px;bottom:80px;padding:6px 14px}
@@ -75,6 +74,14 @@
     #mapright{width:100%}
     #maplist{max-height:30vh}
     #mapclose{padding:12px;font-size:14px}
+  }
+  /* on-screen touch controls ONLY on real touch devices, never on a narrow desktop window */
+  @media(pointer:coarse){
+    #controls{display:none!important}
+    #touch-controls{display:block}
+    #minimap{bottom:175px;right:max(10px,env(safe-area-inset-right))}
+    #maphint{bottom:280px}
+    #camsel{top:auto;bottom:175px}
     #hud{top:max(14px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left))}
     #joystick-zone{left:max(10px,env(safe-area-inset-left));bottom:max(30px,env(safe-area-inset-bottom))}
     #btn-gas{right:max(20px,env(safe-area-inset-right))}
@@ -82,7 +89,6 @@
     #btn-hand{right:max(25px,env(safe-area-inset-right))}
     #btn-cam{right:max(20px,env(safe-area-inset-right))}
     #btn-map{right:max(70px,calc(50px + env(safe-area-inset-right)))}
-    #minimap{right:max(10px,env(safe-area-inset-right))}
   }
 </style>
 </head>
