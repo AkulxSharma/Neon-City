@@ -3778,7 +3778,7 @@ function makePoliceJeep(){
   const bodyExtrude={depth:WID,bevelEnabled:true,bevelThickness:.05,bevelSize:.06,bevelSegments:3,curveSegments:14};
   const hoodY=belt-0.26;
   const bodyShape=new THREE.Shape();
-  bodyShape.moveTo(-L+0.24,rideH);
+  bodyShape.moveTo(-L,rideH);
   bodyShape.lineTo(L-0.14,rideH);
   bodyShape.quadraticCurveTo(L,rideH,L,rideH+0.34);   // rounded front-bottom corner
   bodyShape.lineTo(L,hoodY);                           // short vertical grille face
