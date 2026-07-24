@@ -3979,6 +3979,15 @@ const waterMat=new THREE.MeshStandardMaterial({color:0x3fa8e8,roughness:.15,meta
 // open water instead of streets, and one big static plane covers the lot.
 const SHORE_X=600, SEA_Y=0.2, SHORE_CI=Math.round(SHORE_X/CELL);
 function inSea(x){ return x>SHORE_X; }
+// the piers reach OUT over the water (a deck every third shore block), so being past
+// SHORE_X isn't automatically "in the sea" — you can be standing on solid decking.
+const PIER_LEN=44, PIER_DECK_Y=SEA_Y+0.9;       // must match the deck built in buildChunk
+function onPier(x,z){
+  if(x<SHORE_X-3||x>SHORE_X-2+PIER_LEN) return false;
+  const cj=Math.round((z-50)/CELL);
+  if(((cj%3)+3)%3!==0) return false;             // decks only on every third block
+  return Math.abs(z-(cj*CELL+50))<4.6;           // within the deck's 9m width
+}
 const seaRippleTex=waterRippleTex.clone();
 seaRippleTex.needsUpdate=true;
 seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.set(120,120);
