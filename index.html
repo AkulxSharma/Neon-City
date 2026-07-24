@@ -5279,6 +5279,59 @@ const HANDLING={
   mpower:{grip:7.0,turnGain:.87,steerRamp:3.1,steerMin:.30,drag:.36,dragQ:.0015},
 };
 
+// ---------- boats ----------
+// plan-view hull outline (square stern, tapered bow) extruded downward into a hull,
+// same profile-extrude technique the police jeep body uses. Bow points +Z to match
+// every other vehicle's forward axis, so the shared drive loop needs no special case.
+function makeBoat(color,opts){
+  opts=opts||{};
+  const grp=new THREE.Group();
+  const hullMat=new THREE.MeshStandardMaterial({color:color,metalness:.35,roughness:.34});
+  const deckTopMat=new THREE.MeshStandardMaterial({color:0xd8d2c4,roughness:.75});
+  const cabinMat=new THREE.MeshStandardMaterial({color:0xf2f0ea,roughness:.5});
+  const glassMat=new THREE.MeshStandardMaterial({color:0x0a1a26,metalness:.9,roughness:.08,transparent:true,opacity:.55});
+
+  const HW=1.25, STERN=-3.1, BOW=4.0, DEPTH=1.2;
+  const s=new THREE.Shape();
+  s.moveTo(-HW,STERN); s.lineTo(HW,STERN); s.lineTo(HW,1.5);
+  s.quadraticCurveTo(HW*0.92,3.1, 0,BOW);
+  s.quadraticCurveTo(-HW*0.92,3.1,-HW,1.5); s.lineTo(-HW,STERN);
+  const hull=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:DEPTH,bevelEnabled:true,bevelSize:0.14,bevelThickness:0.12,bevelSegments:2}),hullMat);
+  hull.rotation.x=Math.PI/2;        // shape +Y -> world +Z (bow forward), extrude -> downward
+  hull.position.y=DEPTH+0.05;       // so the hull bottom sits just under the waterline
+  hull.castShadow=true; grp.add(hull);
+
+  const deck=new THREE.Mesh(new THREE.BoxGeometry(HW*1.85,0.12,6.2),deckTopMat);
+  deck.position.set(0,DEPTH+0.11,0.25); deck.receiveShadow=true; grp.add(deck);
+
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(HW*1.5,0.95,2.3),cabinMat);
+  cabin.position.set(0,DEPTH+0.6,-0.35); cabin.castShadow=true; grp.add(cabin);
+  const screen=new THREE.Mesh(new THREE.BoxGeometry(HW*1.42,0.62,0.08),glassMat);
+  screen.position.set(0,DEPTH+0.68,0.82); screen.rotation.x=-0.22; grp.add(screen);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(HW*1.62,0.09,2.5),deckTopMat);
+  roof.position.set(0,DEPTH+1.1,-0.35); roof.castShadow=true; grp.add(roof);
+
+  const rail=new THREE.MeshStandardMaterial({color:0xc9ced6,metalness:1,roughness:.25});
+  for(const sx of [-1,1]){          // bow rails
+    const r=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,2.6),rail);
+    r.position.set(sx*HW*0.8,DEPTH+0.45,2.3); r.rotation.y=sx*0.18; grp.add(r);
+  }
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,1.5,6),rail);
+  mast.position.set(0,DEPTH+1.85,-0.35); grp.add(mast);
+  const navLight=new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8),new THREE.MeshBasicMaterial({color:opts.light||0xff4d4d}));
+  navLight.position.set(0,DEPTH+2.6,-0.35); grp.add(navLight);
+
+  // the drive loop reads these on every vehicle — a boat just has no wheels to turn or spin
+  grp.userData.frontWheels=[];
+  grp.userData.wheelR=0.4;
+  grp.userData.seatY=DEPTH+0.55;
+  grp.userData.isBoat=true;
+  return grp;
+}
+// handling: no tyres, so almost no lateral grip — a boat carries its momentum wide
+// through a turn and keeps swinging after you let go. Slow to build speed, slow to stop.
+const BOAT_HANDLING={grip:0.55,turnGain:1.15,steerRamp:2.2,steerMin:.30,drag:.22,dragQ:.0009};
+
 // ---------- seated driver bust shown inside every roaming car ----------
 const DRV_SKIN=[0xd9a066,0x8a5a2b,0xf0c8a0,0x6b4423,0xc79a6b,0xa06a3a];
 const DRV_SHIRT=[0x2a2e38,0xc84f4f,0x4f7ac8,0x3a6a4a,0xe8e8e8,0xd98a3a,0x9a4fc8];
