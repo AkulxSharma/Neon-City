@@ -6781,7 +6781,16 @@ function tick(now){
         if(preSpd2>41.7&&!v.isBike&&!v.noEject&&player.veh){ ejectPlayer(v,preSpd2); }
       }
     }
-    v.g.position.set(v.x,0,v.z); v.g.rotation.y=v.h;
+    if(v.isBoat){
+      // float: idle bob, bow lifts as she picks up speed, and she heels into the turn
+      const sp=Math.abs(v.speed);
+      v.g.position.set(v.x,SEA_Y+Math.sin(time*1.7+v.x*0.05)*0.07,v.z);
+      v.g.rotation.y=v.h;
+      v.g.rotation.x=-clamp(sp/40,0,1)*0.10+Math.sin(time*1.3+v.z*0.05)*0.012;
+      v.g.rotation.z=clamp((v.vLat||0)/9,-1,1)*0.16;
+    } else {
+      v.g.position.set(v.x,0,v.z); v.g.rotation.y=v.h;
+    }
     if(v.isBike) v.g.rotation.z=-steer*clamp(Math.abs(v.speed)/25,0,1)*0.45;
     for(const w of v.g.userData.frontWheels) w.rotation.y=steer*0.4;
     if(v.g.userData.spins){ const ws=v.speed*dt/(v.g.userData.wheelR||0.4); for(const s of v.g.userData.spins) s.rotation.x+=ws; }
