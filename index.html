@@ -5745,11 +5745,15 @@ function updateSinking(dt,pvx,pvz){
       v.sink=0; v.g.position.y=0; v.g.rotation.z=0;
     }
   }
-  if(!player.veh&&inSea(player.x)){                // on foot: you don't walk on water either
+  if(!player.veh&&inSea(player.x)&&!onPier(player.x,player.z)){   // on foot: you don't walk on water
     player.drown=Math.min(1,(player.drown||0)+dt*0.5);
     pMesh.position.y=-player.drown*DROWN_DEPTH;
     if(player.drown>=1) washAshore();
-  } else player.drown=0;
+  } else {
+    player.drown=0;
+    // stand on the pier deck (it's a raised platform) instead of clipping through it
+    if(!player.veh&&onPier(player.x,player.z)) pMesh.position.y=Math.max(pMesh.position.y,PIER_DECK_Y);
+  }
 }
 
 // simple lane-runners: they hold a heading and a lane and recycle around the player.
