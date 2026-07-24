@@ -6748,7 +6748,10 @@ function tick(now){
     vlong-=vlong*(v.drag!==undefined?v.drag:0.4)*dt;
     vlong-=vlong*Math.abs(vlong)*(v.dragQ!==undefined?v.dragQ:0.0016)*dt;
     if(hb) vlong-=vlong*1.8*dt;
-    const waterK=waterFactor(v.x,v.z);                // smooth speed/grip penalty near/in the lake
+    // a boat is the one vehicle water does NOT punish — instead it's dry land that
+    // kills it, so the penalty is simply inverted for anything with a hull.
+    const waterK=v.isBoat?(v.x<SHORE_X-1?lerp(1,0.10,clamp((SHORE_X-1-v.x)/16,0,1)):1)
+                        :waterFactor(v.x,v.z);        // smooth speed/grip penalty near/in the lake
     vlong=clamp(vlong,-16,(v.max+(nitro?(v.nitroBoost!==undefined?v.nitroBoost:NITRO_BOOST):0))*waterK);
 
     // ---- lateral grip: tyres bleed sideways velocity away; the handbrake (or a
