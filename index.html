@@ -7136,10 +7136,10 @@ function tick(now){
     //      the city — so traffic turns away instead of plunging in and being recycled.
     if(t.axis==='x'&&t.dirSign>0){
       const distToShore=(SHORE_X-6)-t.pos;                  // stop line just short of the kerb
-      if(distToShore<=0){                                   // reached the water's edge: turn around
-        t.pos=SHORE_X-6; t.dirSign=-1; v.speed*=0.5;
-      } else if(distToShore<22){
-        blocked=true;                                       // ease to a halt over the last stretch
+      if(distToShore<14){                                   // close enough — U-turn and head back inland
+        t.dirSign=-1; v.speed*=0.4;
+      } else if(distToShore<30){
+        blocked=true;                                       // brake on the approach so the turn isn't abrupt
       }
     }
     // yield to nearby sirens — pull to road edge and slow down
