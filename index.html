@@ -6367,11 +6367,17 @@ function drawBigMap(){
   const px=playerWX(), pz=playerWZ(), ph=player.veh?player.veh.h:player.h;
   const R=520, C=R/2, S=0.62;
   bmc.fillStyle='#0a0c12'; bmc.fillRect(0,0,R,R);
+  const shoreBX=clamp(C+(SHORE_X-px)*S,0,R);                 // coastline in map pixels
+  if(shoreBX<R){
+    bmc.fillStyle='#0f2f4e'; bmc.fillRect(shoreBX,0,R-shoreBX,R);   // open sea
+    bmc.strokeStyle='#2fe8ff'; bmc.lineWidth=1.5; bmc.globalAlpha=.5;
+    bmc.beginPath(); bmc.moveTo(shoreBX,0); bmc.lineTo(shoreBX,R); bmc.stroke(); bmc.globalAlpha=1;
+  }
   bmc.fillStyle='#252a36';                                   // road grid
   const k0=Math.floor((px-C/S)/CELL), k1=Math.ceil((px+C/S)/CELL);
-  for(let k=k0;k<=k1;k++) bmc.fillRect(C+(k*CELL-px)*S-ROAD_W*S/2,0,ROAD_W*S,R);
+  for(let k=k0;k<=k1;k++){ if(k*CELL>SHORE_X) continue; bmc.fillRect(C+(k*CELL-px)*S-ROAD_W*S/2,0,ROAD_W*S,R); }
   const j0=Math.floor((pz-C/S)/CELL), j1=Math.ceil((pz+C/S)/CELL);
-  for(let j=j0;j<=j1;j++) bmc.fillRect(0,C+(j*CELL-pz)*S-ROAD_W*S/2,R,ROAD_W*S);
+  for(let j=j0;j<=j1;j++) bmc.fillRect(0,C+(j*CELL-pz)*S-ROAD_W*S/2,shoreBX,ROAD_W*S);
   // route line following roads
   if(navTarget){
     const route=getNavRoute(px,pz,navTarget.x,navTarget.z);
