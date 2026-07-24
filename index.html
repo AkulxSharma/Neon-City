@@ -3972,6 +3972,46 @@ const waterRippleTex=canvasTex(128,128,g=>{
 });
 waterRippleTex.wrapS=waterRippleTex.wrapT=THREE.RepeatWrapping; waterRippleTex.repeat.set(3,3);
 const waterMat=new THREE.MeshStandardMaterial({color:0x3fa8e8,roughness:.15,metalness:.4,emissive:0x1a4a6a,emissiveIntensity:.4,map:waterRippleTex});
+
+// ================= THE COAST =================
+// the city grid is endless in every direction, so the sea isn't a hole in a finite
+// map — it's a line the generator refuses to build past. Chunks east of SHORE_X get
+// open water instead of streets, and one big static plane covers the lot.
+const SHORE_X=600, SEA_Y=0.2, SHORE_CI=Math.round(SHORE_X/CELL);
+function inSea(x){ return x>SHORE_X; }
+// the piers reach OUT over the water (a deck every third shore block), so being past
+// SHORE_X isn't automatically "in the sea" — you can be standing on solid decking.
+const PIER_LEN=44, PIER_DECK_Y=SEA_Y+0.9;       // must match the deck built in buildChunk
+function onPier(x,z){
+  if(x<SHORE_X-3||x>SHORE_X-2+PIER_LEN) return false;
+  const cj=Math.round((z-50)/CELL);
+  if(((cj%3)+3)%3!==0) return false;             // decks only on every third block
+  return Math.abs(z-(cj*CELL+50))<4.6;           // within the deck's 9m width
+}
+const seaRippleTex=waterRippleTex.clone();
+seaRippleTex.needsUpdate=true;
+seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.set(120,120);
+// deliberately ROUGH and non-metallic. The lake gets away with a glassy finish because
+// it's 36m across; on a 12km plane a smooth spec lobe becomes one enormous highlight that
+// the bloom pass smears into a solid white sheet. Choppy open water is the honest look.
+// tuned against the scene's haze: the fog is a pale blue that far out-brightens a
+// mid-blue surface, so the water has to be considerably darker than it "should" be
+// to still read as water at distance.
+const seaMat=new THREE.MeshStandardMaterial({color:0x0a3a60,roughness:.9,metalness:0,emissive:0x0a2138,emissiveIntensity:.04,map:seaRippleTex});
+// 12km square rather than a 32km slab: fog closes out at 430 units, so anything past
+// that is invisible anyway, and the smaller plane keeps depth precision sane at the
+// shoreline. It slides along Z with the player exactly like the street ground does.
+const SEA_SPAN=12000;
+const seaMesh=new THREE.Mesh(new THREE.PlaneGeometry(SEA_SPAN,SEA_SPAN),seaMat);
+seaMesh.rotation.x=-Math.PI/2;
+seaMesh.position.set(SHORE_X+SEA_SPAN/2,SEA_Y,0);   // west edge butts up against the shore
+seaMesh.receiveShadow=false; seaMesh.castShadow=false;
+scene.add(seaMesh);
+const quayMat=new THREE.MeshStandardMaterial({color:0x6a6f78,roughness:.9,metalness:.05});
+const pilingMat=new THREE.MeshStandardMaterial({color:0x3a2e24,roughness:.95});
+const deckMat=new THREE.MeshStandardMaterial({color:0x8a6a44,roughness:.85});
+const buoyGeo=new THREE.ConeGeometry(0.7,2.2,8);
+const buoyMat=new THREE.MeshStandardMaterial({color:0xff5a2a,emissive:0x7a1e00,emissiveIntensity:.3,roughness:.6});
 const benchSeatGeo=new THREE.BoxGeometry(1.9,0.1,0.55);
 const benchBackGeo=new THREE.BoxGeometry(1.9,0.5,0.08);
 const benchLegGeo=new THREE.BoxGeometry(0.08,0.35,0.5);
@@ -4112,6 +4152,7 @@ const LANDMARKS=[
   {name:'SKY TOWER',      x:150,      z:-150,        col:'#dfe4ff', kind:'tower'},
   {name:'FOUNTAIN PLAZA', x:-150,     z:-150,        col:'#b06bff', kind:'plaza'},
   {name:'HARBOR LAKE',    x:50,       z:-250,        col:'#2fb8ff', kind:'water'},
+  {name:'EAST MARINA',    x:SHORE_X-34, z:50,        col:'#2fe8ff', kind:'marina'},
 ];
 // smooth speed/grip penalty for driving into the lake — composes as a plain
 // multiplier alongside per-vehicle HANDLING and the weather wetGrip, so every
@@ -4124,6 +4165,9 @@ function waterFactor(x,z){
     const t=clamp((wz.r+14-d)/14,0,1);
     k=Math.min(k,lerp(1,0.32,t));
   }
+  // the open sea: nose a car off the quay and it bogs down hard rather than
+  // skimming across. Boats opt out of this entirely (see the drive loop).
+  if(x>SHORE_X-10) k=Math.min(k,lerp(1,0.12,clamp((x-(SHORE_X-10))/18,0,1)));
   return k;
 }
 // which chunk each buildable landmark sits in, so the generator forces it there
@@ -4199,6 +4243,20 @@ function buildChunk(ci,cj){
   const isShowroom=((ci===-1||ci===0)&&cj===0);
   const isPark=!isClub&&!nearInt&&!isShowroom&&rand()<0.13;
   const nycBlds=nycChunkBuildings[ci+','+cj];
+  const isSeaChunk=ci>=SHORE_CI, isShoreChunk=ci===SHORE_CI-1;
+
+  if(isSeaChunk){
+    // open water — no streets, no blocks, nothing to collide with. Just the odd
+    // channel-marker buoy so the sea isn't a featureless sheet at speed.
+    if(rand()<0.35){
+      const buoy=new THREE.Mesh(buoyGeo,buoyMat);
+      buoy.position.set(cx+(rand()-0.5)*70,SEA_Y+1.1,cz+(rand()-0.5)*70);
+      buoy.castShadow=true; grp.add(buoy);
+    }
+    scene.add(grp);
+    chunks.set(ci+','+cj,{grp,cols,geos,ci,cj});
+    return;
+  }
 
   function building(x,z,w,h,d){
     const roadHalf=ROAD_W/2+2;
@@ -4259,7 +4317,12 @@ function buildChunk(ci,cj){
   const lm=landmarkChunks[ci+','+cj];
   if(lm){
     // ================= named landmark =================
-    if(lm.kind==='tower'){                                   // SKY TOWER: one giant glass spire
+    if(lm.kind==='marina'){
+      // EAST MARINA is deliberately EMPTY here: the kerb, bollards and pier come from
+      // the waterfront pass below, and the street ground underneath already looks right.
+      // An 84x84 paved apron was tried and removed — any flat slab that big reads as a
+      // washed-out void next to the asphalt, whatever material it's given.
+    } else if(lm.kind==='tower'){                            // SKY TOWER: one giant glass spire
       building(cx,cz, 30, 152, 30);
       const spGeo=new THREE.CylinderGeometry(0.4,2.6,26,8); geos.push(spGeo);
       const spire=new THREE.Mesh(spGeo,roofMat); spire.position.set(cx,152+13,cz); grp.add(spire);
@@ -4423,6 +4486,31 @@ function buildChunk(ci,cj){
     const crown=new THREE.Mesh(crownGeo,leafMats[Math.floor(rand()*3)]);
     crown.scale.set(r,r*0.85,r); crown.position.set(x,h+r*0.5,z); crown.castShadow=true; grp.add(crown);
     cols.push({x0:x-0.4,x1:x+0.4,z0:z-0.4,z1:z+0.4});
+  }
+  if(isShoreChunk){
+    // ---- waterfront: low kerb along the whole shore + a pier every third block ----
+    // the kerb is deliberately NOT a collider: drive off the edge and you bog down in
+    // the water (see waterFactor) rather than bouncing off an invisible wall.
+    const zc=cj*CELL+50;
+    const kerb=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.5,CELL),quayMat);
+    kerb.position.set(SHORE_X-1.1,0.25,zc); kerb.receiveShadow=true; grp.add(kerb);
+    for(let i=0;i<7;i++){                                    // bollards along the edge
+      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,0.7,8),pilingMat);
+      b.position.set(SHORE_X-3.4,0.35,cj*CELL+8+i*14); b.castShadow=true; grp.add(b);
+    }
+    if(((cj%3)+3)%3===0){
+      const PIER_L=PIER_LEN;                                 // deck reaching out over the water
+      const deck=new THREE.Mesh(new THREE.BoxGeometry(PIER_L,0.4,9),deckMat);
+      deck.position.set(SHORE_X+PIER_L/2-2,SEA_Y+0.7,zc); deck.receiveShadow=true; deck.castShadow=true; grp.add(deck);
+      for(let i=0;i<6;i++) for(const s of [-1,1]){           // pilings holding it up
+        const p=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,2.2,8),pilingMat);
+        p.position.set(SHORE_X+2+i*8,SEA_Y-0.2,zc+s*3.9); grp.add(p);
+      }
+      const lampPost=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.13,4,6),poleMat);
+      lampPost.position.set(SHORE_X+PIER_L-4,SEA_Y+2.7,zc); grp.add(lampPost);
+      const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.35,10,8),new THREE.MeshBasicMaterial({color:0xffe6a8}));
+      lamp.position.set(SHORE_X+PIER_L-4,SEA_Y+4.8,zc); grp.add(lamp);
+    }
   }
   scene.add(grp);
   chunks.set(ci+','+cj,{grp,cols,geos,ci,cj});
@@ -5081,11 +5169,17 @@ function makePorsche918(color){
   const wheelMat=new THREE.MeshStandardMaterial({color:0x1a1a1e,metalness:.6,roughness:.4});
   const wheelScale=1.12;   // slightly bigger than the extracted mesh to close the fender-arch gap
   const trackX=Math.abs(meta.wheelOffsetX), frontZ=meta.wheelOffsetZ, rearZ=frontZ-2.73, r=meta.wheelRadius*wheelScale;
+  // the extracted wheel faces outward on ONE side only (the side it came from). Dropped in
+  // unchanged on the opposite side it shows its hollow inner dish instead of the spoke face,
+  // so yaw those two 180° — a rotation, not a negative scale, which would invert the normals.
+  const srcSide=Math.sign(meta.wheelOffsetX)||1;
   const fw=[], spins=[];
   [[-trackX,frontZ,true],[trackX,frontZ,true],[-trackX,rearZ,false],[trackX,rearZ,false]].forEach(([wx,wz,isFront])=>{
     const pivot=new THREE.Group(); pivot.position.set(wx,r,wz);
     const spin=new THREE.Group(); pivot.add(spin);
-    const mesh=new THREE.Mesh(wheelGeo,wheelMat); mesh.scale.setScalar(wheelScale); mesh.castShadow=true; spin.add(mesh);
+    const mesh=new THREE.Mesh(wheelGeo,wheelMat); mesh.scale.setScalar(wheelScale); mesh.castShadow=true;
+    if(Math.sign(wx)!==srcSide) mesh.rotation.y=Math.PI;   // face the spokes out on the far side
+    spin.add(mesh);
     grp.add(pivot); spins.push(spin); if(isFront) fw.push(pivot);
   });
   grp.userData.frontWheels=fw;
@@ -5203,6 +5297,59 @@ const HANDLING={
   ghost :{grip:7.2,turnGain:.73,steerRamp:2.6,steerMin:.27,drag:.39,dragQ:.0016},
   mpower:{grip:7.0,turnGain:.87,steerRamp:3.1,steerMin:.30,drag:.36,dragQ:.0015},
 };
+
+// ---------- boats ----------
+// plan-view hull outline (square stern, tapered bow) extruded downward into a hull,
+// same profile-extrude technique the police jeep body uses. Bow points +Z to match
+// every other vehicle's forward axis, so the shared drive loop needs no special case.
+function makeBoat(color,opts){
+  opts=opts||{};
+  const grp=new THREE.Group();
+  const hullMat=new THREE.MeshStandardMaterial({color:color,metalness:.35,roughness:.34});
+  const deckTopMat=new THREE.MeshStandardMaterial({color:0xd8d2c4,roughness:.75});
+  const cabinMat=new THREE.MeshStandardMaterial({color:0xf2f0ea,roughness:.5});
+  const glassMat=new THREE.MeshStandardMaterial({color:0x0a1a26,metalness:.9,roughness:.08,transparent:true,opacity:.55});
+
+  const HW=1.25, STERN=-3.1, BOW=4.0, DEPTH=1.2;
+  const s=new THREE.Shape();
+  s.moveTo(-HW,STERN); s.lineTo(HW,STERN); s.lineTo(HW,1.5);
+  s.quadraticCurveTo(HW*0.92,3.1, 0,BOW);
+  s.quadraticCurveTo(-HW*0.92,3.1,-HW,1.5); s.lineTo(-HW,STERN);
+  const hull=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:DEPTH,bevelEnabled:true,bevelSize:0.14,bevelThickness:0.12,bevelSegments:2}),hullMat);
+  hull.rotation.x=Math.PI/2;        // shape +Y -> world +Z (bow forward), extrude -> downward
+  hull.position.y=DEPTH+0.05;       // so the hull bottom sits just under the waterline
+  hull.castShadow=true; grp.add(hull);
+
+  const deck=new THREE.Mesh(new THREE.BoxGeometry(HW*1.85,0.12,6.2),deckTopMat);
+  deck.position.set(0,DEPTH+0.11,0.25); deck.receiveShadow=true; grp.add(deck);
+
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(HW*1.5,0.95,2.3),cabinMat);
+  cabin.position.set(0,DEPTH+0.6,-0.35); cabin.castShadow=true; grp.add(cabin);
+  const screen=new THREE.Mesh(new THREE.BoxGeometry(HW*1.42,0.62,0.08),glassMat);
+  screen.position.set(0,DEPTH+0.68,0.82); screen.rotation.x=-0.22; grp.add(screen);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(HW*1.62,0.09,2.5),deckTopMat);
+  roof.position.set(0,DEPTH+1.1,-0.35); roof.castShadow=true; grp.add(roof);
+
+  const rail=new THREE.MeshStandardMaterial({color:0xc9ced6,metalness:1,roughness:.25});
+  for(const sx of [-1,1]){          // bow rails
+    const r=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,2.6),rail);
+    r.position.set(sx*HW*0.8,DEPTH+0.45,2.3); r.rotation.y=sx*0.18; grp.add(r);
+  }
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,1.5,6),rail);
+  mast.position.set(0,DEPTH+1.85,-0.35); grp.add(mast);
+  const navLight=new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8),new THREE.MeshBasicMaterial({color:opts.light||0xff4d4d}));
+  navLight.position.set(0,DEPTH+2.6,-0.35); grp.add(navLight);
+
+  // the drive loop reads these on every vehicle — a boat just has no wheels to turn or spin
+  grp.userData.frontWheels=[];
+  grp.userData.wheelR=0.4;
+  grp.userData.seatY=DEPTH+0.55;
+  grp.userData.isBoat=true;
+  return grp;
+}
+// handling: no tyres, so almost no lateral grip — a boat carries its momentum wide
+// through a turn and keeps swinging after you let go. Slow to build speed, slow to stop.
+const BOAT_HANDLING={grip:0.55,turnGain:1.15,steerRamp:2.2,steerMin:.30,drag:.22,dragQ:.0009};
 
 // ---------- seated driver bust shown inside every roaming car ----------
 const DRV_SKIN=[0xd9a066,0x8a5a2b,0xf0c8a0,0x6b4423,0xc79a6b,0xa06a3a];
@@ -5525,6 +5672,110 @@ addVehicle(makeBike(0xff7a1f),'VIPER 1000',62,40,true,-26,14.8,Math.PI);
 addVehicle(MODELS.rosso(),'ROSSO GT',66,36,false,CLUB.cx-14,CLUB.cz+22,Math.PI/2,null,HANDLING.rosso);
 addVehicle(makeBike(0xc82fff),'NEON RIDER',60,38,true,CLUB.cx+16,CLUB.cz+22,Math.PI/2);
 
+// ---- EAST MARINA: boats moored alongside the pier, boardable with E like any car ----
+const boatOpts=()=>Object.assign({},BOAT_HANDLING,{isBoat:true});
+addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88}),'SEA SPRITE',34,13,false,SHORE_X+13,58,Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0x1f4a7a,{light:0x4dff88}),'HARBOR CAT',30,11,false,SHORE_X+25,42,-Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0xd8121a,{light:0xffd76a}),'RED TIDE', 40,16,false,SHORE_X+40,58,Math.PI/2,null,boatOpts());
+
+// ---- AI harbour traffic: boats running north/south lanes out in the open water ----
+const boatTraffic=[];
+function boatRespawn(v,pvz,initial){
+  const b=v.boat;
+  b.dir=Math.random()<0.5?1:-1;
+  b.speed=7+Math.random()*13;
+  b.lane=SHORE_X+80+Math.random()*560;                    // keep well clear of the quay
+  v.x=b.lane;
+  v.z=initial?(Math.random()-0.5)*700:pvz-b.dir*(260+Math.random()*260);
+  v.h=b.dir>0?0:Math.PI;
+  v.speed=b.speed; v.vLat=0;
+}
+{
+  const hulls=[0xe8e8ee,0x2f4f7a,0xc84f4f,0x2a2e38,0x1f7a5a,0xd8a23a,0x8a5a2b];
+  for(let i=0;i<9;i++){
+    const v=addVehicle(makeBoat(hulls[i%hulls.length],{light:0x4dff88}),'HARBOUR RUNNER',30,12,false,0,0,0,null,boatOpts());
+    v.boat={lane:0,dir:1,speed:10};
+    boatRespawn(v,0,true);
+    boatTraffic.push(v);
+  }
+}
+// ---------- sinking: a hull floats, nothing else does ----------
+// Runs as its own pass AFTER every other loop has written g.position, because the
+// drive loop and the traffic loop each stamp y=0 on their vehicles every frame —
+// anything trying to hold a car under the surface earlier would just get overwritten.
+const SINK_DEPTH=4.4, DROWN_DEPTH=2.6;
+function washAshore(msg){
+  player.drown=0; player.py=0; player.vy=0;
+  player.x=SHORE_X-14; player.h=Math.PI;          // dumped back on the quay facing the city
+  pMesh.position.set(player.x,0,player.z);
+  showMsg(msg||'WASHED ASHORE');
+}
+function updateSinking(dt,pvx,pvz){
+  for(const v of vehicles){
+    if(v.isBoat){
+      // moored boats are driven by nobody, so nothing else sets their height — sit them
+      // on the waterline with a slow bob instead of leaving them at y=0, half under it
+      if(v!==player.veh&&!v.boat) v.g.position.y=SEA_Y+Math.sin(time*1.5+v.x*0.05)*0.06;
+      continue;
+    }
+    if(inSea(v.x)&&!onPier(v.x,v.z)){
+      v.sink=Math.min(1,(v.sink||0)+dt*0.45);
+      const damp=clamp(1-2.6*dt,0,1);
+      v.speed*=damp; v.vLat=(v.vLat||0)*damp;      // engine drowns out, she stops driving
+      v.g.position.y=-v.sink*SINK_DEPTH;
+      v.g.rotation.z=v.sink*0.5;                   // rolls onto her side on the way down
+      if(v.sink>=1){
+        if(player.veh===v){                        // bail out before she's fully under
+          player.veh=null; player.onFoot=true; player.speed=0;
+          pMesh.visible=true;
+          if(v.g.userData.cab) v.g.userData.cab.visible=true;
+          headL.intensity=headR.intensity=0;
+          player.z=v.z;
+          washAshore('SHE WENT DOWN — YOU SWAM FOR IT');
+          saveGame();
+        } else if(v.traffic){                      // recycle NPC cars rather than littering the seabed
+          const t=v.traffic;
+          v.sink=0; v.g.position.y=0; v.g.rotation.z=0;
+          trafficRespawn(v,t,pvx,pvz);
+          v.x=t.axis==='x'?t.pos:t.lane; v.z=t.axis==='x'?t.lane:t.pos;
+        }
+        // an abandoned player car just stays on the bottom where it sank
+      }
+    } else if(v.sink){                             // hauled back onto dry land somehow — reset
+      v.sink=0; v.g.position.y=0; v.g.rotation.z=0;
+    }
+  }
+  if(!player.veh&&inSea(player.x)&&!onPier(player.x,player.z)){   // on foot: you don't walk on water
+    player.drown=Math.min(1,(player.drown||0)+dt*0.5);
+    pMesh.position.y=-player.drown*DROWN_DEPTH;
+    if(player.drown>=1) washAshore();
+  } else {
+    player.drown=0;
+    // stand on the pier deck (a raised platform), with the deck as the jump floor.
+    // ADD player.py on top of the deck height — clamping with max() instead swallowed
+    // the first PIER_DECK_Y metres of every jump, so jumps barely showed.
+    if(!player.veh&&onPier(player.x,player.z)) pMesh.position.y=PIER_DECK_Y+player.py;
+  }
+}
+
+// simple lane-runners: they hold a heading and a lane and recycle around the player.
+// Not the road-traffic AI — there are no lanes, junctions or lights to obey out here.
+function updateBoatTraffic(dt,pvx,pvz){
+  for(const v of boatTraffic){
+    const b=v.boat;
+    if(v===player.veh){                                   // player took the helm: track it, don't drive it
+      b.lane=v.x; b.dir=Math.cos(v.h)>=0?1:-1;
+      continue;
+    }
+    v.h=b.dir>0?0:Math.PI;
+    v.speed=b.speed;
+    v.x=b.lane; v.z+=b.dir*b.speed*dt;
+    v.g.position.set(v.x,SEA_Y+Math.sin(time*1.5+v.x*0.05)*0.07,v.z);
+    v.g.rotation.y=v.h;
+    if(Math.abs(v.z-pvz)>1000||Math.abs(v.x-pvx)>1600) boatRespawn(v,pvz,false);
+  }
+}
+
 // traffic
 const sedanColors=[0x8b93a1,0x3a3f4a,0x7a2020,0x1f4a7a,0xcfd3da,0x2a5a3a,0x5a4a7a];
 const SR_X0=-86,SR_X1=-10,SR_Z0=11,SR_Z1=41;
@@ -5537,8 +5788,12 @@ function trafficRespawn(v,t,pvx,pvz){
     t.lane=k*CELL+4.6*t.dirSign;
     t.pos=(t.axis==='x'?pvx:pvz)+(Math.random()<0.5?1:-1)*(120+Math.random()*130);
     const sx=t.axis==='x'?t.pos:t.lane, sz=t.axis==='x'?t.lane:t.pos;
-    if(!inShowroom(sx,sz)) return;
+    if(!inShowroom(sx,sz)&&!inSea(sx)) return;   // never respawn road traffic out on the water
   }
+  // all 8 tries landed somewhere illegal — force the lane back inland rather than
+  // falling through with whatever the last (possibly offshore) attempt left behind
+  if(t.axis==='z'&&t.lane>SHORE_X-CELL) t.lane-=CELL*2;
+  else if(t.axis==='x'&&t.pos>SHORE_X-CELL) t.pos-=CELL*2;
 }
 for(let i=0;i<22;i++){
   const fancy=Math.random()<0.25;
@@ -5856,9 +6111,39 @@ document.querySelectorAll('#camsel button').forEach(b=>{
   b.addEventListener('mousedown',e=>e.preventDefault());   // never steal keyboard focus from the game
   b.addEventListener('click',()=>{ setCamMode(+b.dataset.m); b.blur(); });
 });
+// ---- cheat codes: just type the word while playing, GTA-style (no console, no menu) ----
+function spawnPorscheAhead(){
+  const src=player.veh||player;                    // works on foot AND while you're already driving
+  const d=player.veh?12:7;                         // extra clearance so it never lands on your bonnet
+  const x=src.x+Math.sin(src.h)*d, z=src.z+Math.cos(src.h)*d;
+  addVehicle(customCar('royce',0x0c0c0e),'PORSCHE 918',125,60,false,x,z,src.h,null,HANDLING.royce);
+  showMsg('PORSCHE 918 DELIVERED — PRESS E');
+}
+function spawnBoatAhead(){
+  const src=player.veh||player;
+  const d=player.veh?14:9;
+  let x=src.x+Math.sin(src.h)*d, z=src.z+Math.cos(src.h)*d;
+  if(x<SHORE_X+6) x=SHORE_X+14;                  // a boat on tarmac is useless — always put her in the water
+  addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88}),'SEA SPRITE',34,13,false,x,z,src.h,null,boatOpts());
+  showMsg('BOAT MOORED OFF THE QUAY — PRESS E');
+}
+const CHEATS={ porche:spawnPorscheAhead, porsche:spawnPorscheAhead, boat:spawnBoatAhead };   // his spelling and the real one
+let cheatBuf='', cheatLast=0;
+// feed one letter in. returns true when that letter is part of a live cheat, so the caller
+// swallows it — otherwise typing "porche" would also toggle the camera (C) and the help panel (H).
+function cheatFeed(ch){
+  const now=performance.now();
+  if(now-cheatLast>1500) cheatBuf='';              // pause mid-word and the sequence resets
+  cheatLast=now;
+  cheatBuf=(cheatBuf+ch).slice(-24);
+  for(const c in CHEATS) if(cheatBuf.endsWith(c)){ cheatBuf=''; CHEATS[c](); return true; }
+  for(const c in CHEATS) for(let n=1;n<c.length;n++) if(cheatBuf.endsWith(c.slice(0,n))) return true;
+  return false;
+}
 addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if(!keys[e.code]){
+    if(/^Key[A-Z]$/.test(e.code) && cheatFeed(e.code.slice(3).toLowerCase())){ keys[e.code]=true; initAudio(); return; }
     if(e.code==='KeyE'){ if(!clubDoorAction()) toggleVehicle(); }
     if(e.code==='Space'){
       spaceTap=true;
@@ -6172,11 +6457,17 @@ function drawBigMap(){
   const px=playerWX(), pz=playerWZ(), ph=player.veh?player.veh.h:player.h;
   const R=520, C=R/2, S=0.62;
   bmc.fillStyle='#0a0c12'; bmc.fillRect(0,0,R,R);
+  const shoreBX=clamp(C+(SHORE_X-px)*S,0,R);                 // coastline in map pixels
+  if(shoreBX<R){
+    bmc.fillStyle='#0f2f4e'; bmc.fillRect(shoreBX,0,R-shoreBX,R);   // open sea
+    bmc.strokeStyle='#2fe8ff'; bmc.lineWidth=1.5; bmc.globalAlpha=.5;
+    bmc.beginPath(); bmc.moveTo(shoreBX,0); bmc.lineTo(shoreBX,R); bmc.stroke(); bmc.globalAlpha=1;
+  }
   bmc.fillStyle='#252a36';                                   // road grid
   const k0=Math.floor((px-C/S)/CELL), k1=Math.ceil((px+C/S)/CELL);
-  for(let k=k0;k<=k1;k++) bmc.fillRect(C+(k*CELL-px)*S-ROAD_W*S/2,0,ROAD_W*S,R);
+  for(let k=k0;k<=k1;k++){ if(k*CELL>SHORE_X) continue; bmc.fillRect(C+(k*CELL-px)*S-ROAD_W*S/2,0,ROAD_W*S,R); }
   const j0=Math.floor((pz-C/S)/CELL), j1=Math.ceil((pz+C/S)/CELL);
-  for(let j=j0;j<=j1;j++) bmc.fillRect(0,C+(j*CELL-pz)*S-ROAD_W*S/2,R,ROAD_W*S);
+  for(let j=j0;j<=j1;j++) bmc.fillRect(0,C+(j*CELL-pz)*S-ROAD_W*S/2,shoreBX,ROAD_W*S);
   // route line following roads
   if(navTarget){
     const route=getNavRoute(px,pz,navTarget.x,navTarget.z);
@@ -6297,11 +6588,15 @@ const mm=document.getElementById('minimap').getContext('2d');
 function drawMinimap(pvx,pvz,ph){
   const R=180, S=R/360, C=R/2;
   mm.fillStyle='#11141c'; mm.fillRect(0,0,R,R);
+  // the coast, in minimap pixels: sea fills everything east of it and the street
+  // grid stops there, so the shoreline reads without drawing it as its own shape
+  const shoreSX=clamp(C+(SHORE_X-pvx)*S,0,R);
+  if(shoreSX<R){ mm.fillStyle='#12395e'; mm.fillRect(shoreSX,0,R-shoreSX,R); }
   mm.fillStyle='#3a3f4c';
   const k0=Math.floor((pvx-180)/CELL), k1=Math.ceil((pvx+180)/CELL);
-  for(let k=k0;k<=k1;k++){ mm.fillRect(C+(k*CELL-pvx)*S-ROAD_W*S/2,0,ROAD_W*S,R); }
+  for(let k=k0;k<=k1;k++){ if(k*CELL>SHORE_X) continue; mm.fillRect(C+(k*CELL-pvx)*S-ROAD_W*S/2,0,ROAD_W*S,R); }
   const j0=Math.floor((pvz-180)/CELL), j1=Math.ceil((pvz+180)/CELL);
-  for(let j=j0;j<=j1;j++){ mm.fillRect(0,C+(j*CELL-pvz)*S-ROAD_W*S/2,R,ROAD_W*S); }
+  for(let j=j0;j<=j1;j++){ mm.fillRect(0,C+(j*CELL-pvz)*S-ROAD_W*S/2,shoreSX,ROAD_W*S); }
   // route line following roads
   if(navTarget){
     const route=getNavRoute(pvx,pvz,navTarget.x,navTarget.z);
@@ -6589,7 +6884,7 @@ function tick(now){
     // nitro only fires on SHIFT+accelerate AND while fuel remains; fuel burns while boosting,
     // refills when not (full 10s tank recharges over ~20s). Boost lifts the top-speed cap by
     // +150 km/h with strong extra thrust so the car actually reaches it.
-    const nitroWant=(kd('ShiftLeft')||kd('ShiftRight'))&&fwdKey()&&!hb&&!v.isBike;
+    const nitroWant=(kd('ShiftLeft')||kd('ShiftRight'))&&fwdKey()&&!hb&&!v.isBike&&!v.isBoat;
     const nitro=nitroWant&&nitroFuel>0;
     nitroFuel=nitro?Math.max(0,nitroFuel-dt):Math.min(NITRO_MAX,nitroFuel+dt*0.5);
     if(fwdKey()) vlong+=(vlong<0?40:v.accel)*dt;
@@ -6598,7 +6893,10 @@ function tick(now){
     vlong-=vlong*(v.drag!==undefined?v.drag:0.4)*dt;
     vlong-=vlong*Math.abs(vlong)*(v.dragQ!==undefined?v.dragQ:0.0016)*dt;
     if(hb) vlong-=vlong*1.8*dt;
-    const waterK=waterFactor(v.x,v.z);                // smooth speed/grip penalty near/in the lake
+    // a boat is the one vehicle water does NOT punish — instead it's dry land that
+    // kills it, so the penalty is simply inverted for anything with a hull.
+    const waterK=v.isBoat?(v.x<SHORE_X-1?lerp(1,0.10,clamp((SHORE_X-1-v.x)/16,0,1)):1)
+                        :waterFactor(v.x,v.z);        // smooth speed/grip penalty near/in the lake
     vlong=clamp(vlong,-16,(v.max+(nitro?(v.nitroBoost!==undefined?v.nitroBoost:NITRO_BOOST):0))*waterK);
 
     // ---- lateral grip: tyres bleed sideways velocity away; the handbrake (or a
@@ -6628,14 +6926,23 @@ function tick(now){
         if(preSpd2>41.7&&!v.isBike&&!v.noEject&&player.veh){ ejectPlayer(v,preSpd2); }
       }
     }
-    v.g.position.set(v.x,0,v.z); v.g.rotation.y=v.h;
+    if(v.isBoat){
+      // float: idle bob, bow lifts as she picks up speed, and she heels into the turn
+      const sp=Math.abs(v.speed);
+      v.g.position.set(v.x,SEA_Y+Math.sin(time*1.7+v.x*0.05)*0.07,v.z);
+      v.g.rotation.y=v.h;
+      v.g.rotation.x=-clamp(sp/40,0,1)*0.10+Math.sin(time*1.3+v.z*0.05)*0.012;
+      v.g.rotation.z=clamp((v.vLat||0)/9,-1,1)*0.16;
+    } else {
+      v.g.position.set(v.x,0,v.z); v.g.rotation.y=v.h;
+    }
     if(v.isBike) v.g.rotation.z=-steer*clamp(Math.abs(v.speed)/25,0,1)*0.45;
     for(const w of v.g.userData.frontWheels) w.rotation.y=steer*0.4;
     if(v.g.userData.spins){ const ws=v.speed*dt/(v.g.userData.wheelR||0.4); for(const s of v.g.userData.spins) s.rotation.x+=ws; }
     steerVis=lerp(steerVis,steer,Math.min(1,dt*8));
     // tyre smoke pours off the rear wheels while drifting or braking hard
     const drifting=(hb||Math.abs(v.vLat||0)>4.5)&&Math.abs(v.speed)>6, hardBrake=backKey()&&v.speed>13;
-    if(!v.isBike&&(drifting||hardBrake)){
+    if(!v.isBike&&!v.isBoat&&(drifting||hardBrake)){
       smokeAcc+=dt;
       while(smokeAcc>0.035){
         smokeAcc-=0.035;
@@ -6700,6 +7007,10 @@ function tick(now){
   // stream the endless city + slide the ground under the player
   ensureChunks(pvx,pvz);
   ground.position.set(Math.round(pvx/CELL)*CELL,0,Math.round(pvz/CELL)*CELL);
+  updateBoatTraffic(dt,pvx,pvz);
+  seaMesh.position.z=Math.round(pvz/CELL)*CELL;            // slide the sea along the coast with the player
+  seaRippleTex.offset.y=(time*0.006)%1;                    // slow swell drifting up the coast
+  seaRippleTex.offset.x=Math.sin(time*0.05)*0.004;
 
   // ----- police convoy: recruit nearby police NPC when player siren active -----
   const playerSirenOn=player.veh&&player.veh.g.userData.siren&&player.veh.g.userData.siren.kind==='police'&&lightMode!==2;
@@ -6798,7 +7109,10 @@ function tick(now){
     }
 
     const ddx=v.x-pvx, ddz=v.z-pvz;
-    if(ddx*ddx+ddz*ddz>260*260||inShowroom(v.x,v.z)){
+    // ...or it has driven off the quay. Excluding the sea from trafficRespawn only
+    // fixed where cars are PLACED — a car already running an x-axis lane keeps going
+    // straight out over the water, because its lane doesn't know the coast exists.
+    if(ddx*ddx+ddz*ddz>260*260||inShowroom(v.x,v.z)||inSea(v.x)){
       if(v.convoy) continue;
       trafficRespawn(v,t,pvx,pvz);
       v.x=t.axis==='x'?t.pos:t.lane; v.z=t.axis==='x'?t.lane:t.pos;
@@ -6821,6 +7135,16 @@ function tick(now){
           if(d>=11&&d<=17) blocked=true;
         }
       }
+    }
+    // ---- don't drive into the sea. Only x-axis eastbound cars ever head at the
+    //      coast (z-axis lanes run parallel to it, and their fixed x-lane is always
+    //      inland). Brake on the approach, then U-turn at the kerb and head back into
+    //      the city — so traffic turns away instead of plunging in and being recycled.
+    // U-turn on position alone (NOT by braking): a brake-to-zero stalls the car short
+    // of the flip line and it never turns. Let it cruise in, then flip ~28m before the
+    // kerb, halving speed so the reversal reads as a turn rather than a bounce.
+    if(t.axis==='x'&&t.dirSign>0&&((SHORE_X-6)-t.pos)<22){
+      t.dirSign=-1; v.speed*=0.55;
     }
     // yield to nearby sirens — pull to road edge and slow down
     let yielding=false;
@@ -6876,9 +7200,13 @@ function tick(now){
       continue;
     }
     const fdx=p.g.position.x-pvx, fdz=p.g.position.z-pvz;
-    if(fdx*fdx+fdz*fdz>220*220){                                   // rehome far peds to a block near the player
+    // rehome far peds — or any who ended up out on the water — to a block near the player
+    if(fdx*fdx+fdz*fdz>220*220||inSea(p.g.position.x)){
       p.cx=(Math.round((pvx-50)/CELL)+Math.floor(Math.random()*5)-2)*CELL+50;
       p.cz=(Math.round((pvz-50)/CELL)+Math.floor(Math.random()*5)-2)*CELL+50;
+      // a ped walks a 72m loop around its block centre, so the centre has to sit far
+      // enough inland that the whole loop stays on dry land
+      p.cx=Math.min(p.cx,SHORE_X-50);
       p.s=Math.random()*288;
     }
     const nearFast=player.veh&&Math.abs(player.veh.speed)>8&&(fdx*fdx+fdz*fdz)<64;
@@ -6991,6 +7319,8 @@ function tick(now){
       }
     }
   }
+
+  updateSinking(dt,pvx,pvz);
 
   // ----- HUD -----
   if(msgT>0){ msgT-=dt; if(msgT<=0) msgEl.style.opacity=0; }
