@@ -5722,6 +5722,10 @@ function trafficRespawn(v,t,pvx,pvz){
     const sx=t.axis==='x'?t.pos:t.lane, sz=t.axis==='x'?t.lane:t.pos;
     if(!inShowroom(sx,sz)&&!inSea(sx)) return;   // never respawn road traffic out on the water
   }
+  // all 8 tries landed somewhere illegal — force the lane back inland rather than
+  // falling through with whatever the last (possibly offshore) attempt left behind
+  if(t.axis==='z'&&t.lane>SHORE_X-CELL) t.lane-=CELL*2;
+  else if(t.axis==='x'&&t.pos>SHORE_X-CELL) t.pos-=CELL*2;
 }
 for(let i=0;i<22;i++){
   const fancy=Math.random()<0.25;
