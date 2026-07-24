@@ -4468,6 +4468,31 @@ function buildChunk(ci,cj){
     crown.scale.set(r,r*0.85,r); crown.position.set(x,h+r*0.5,z); crown.castShadow=true; grp.add(crown);
     cols.push({x0:x-0.4,x1:x+0.4,z0:z-0.4,z1:z+0.4});
   }
+  if(isShoreChunk){
+    // ---- waterfront: low kerb along the whole shore + a pier every third block ----
+    // the kerb is deliberately NOT a collider: drive off the edge and you bog down in
+    // the water (see waterFactor) rather than bouncing off an invisible wall.
+    const zc=cj*CELL+50;
+    const kerb=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.5,CELL),quayMat);
+    kerb.position.set(SHORE_X-1.1,0.25,zc); kerb.receiveShadow=true; grp.add(kerb);
+    for(let i=0;i<7;i++){                                    // bollards along the edge
+      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,0.7,8),pilingMat);
+      b.position.set(SHORE_X-3.4,0.35,cj*CELL+8+i*14); b.castShadow=true; grp.add(b);
+    }
+    if(((cj%3)+3)%3===0){
+      const PIER_L=44;                                       // deck reaching out over the water
+      const deck=new THREE.Mesh(new THREE.BoxGeometry(PIER_L,0.4,9),deckMat);
+      deck.position.set(SHORE_X+PIER_L/2-2,SEA_Y+0.7,zc); deck.receiveShadow=true; deck.castShadow=true; grp.add(deck);
+      for(let i=0;i<6;i++) for(const s of [-1,1]){           // pilings holding it up
+        const p=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,2.2,8),pilingMat);
+        p.position.set(SHORE_X+2+i*8,SEA_Y-0.2,zc+s*3.9); grp.add(p);
+      }
+      const lampPost=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.13,4,6),poleMat);
+      lampPost.position.set(SHORE_X+PIER_L-4,SEA_Y+2.7,zc); grp.add(lampPost);
+      const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.35,10,8),new THREE.MeshBasicMaterial({color:0xffe6a8}));
+      lamp.position.set(SHORE_X+PIER_L-4,SEA_Y+4.8,zc); grp.add(lamp);
+    }
+  }
   scene.add(grp);
   chunks.set(ci+','+cj,{grp,cols,geos,ci,cj});
 }
