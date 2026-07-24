@@ -7118,9 +7118,13 @@ function tick(now){
       continue;
     }
     const fdx=p.g.position.x-pvx, fdz=p.g.position.z-pvz;
-    if(fdx*fdx+fdz*fdz>220*220){                                   // rehome far peds to a block near the player
+    // rehome far peds — or any who ended up out on the water — to a block near the player
+    if(fdx*fdx+fdz*fdz>220*220||inSea(p.g.position.x)){
       p.cx=(Math.round((pvx-50)/CELL)+Math.floor(Math.random()*5)-2)*CELL+50;
       p.cz=(Math.round((pvz-50)/CELL)+Math.floor(Math.random()*5)-2)*CELL+50;
+      // a ped walks a 72m loop around its block centre, so the centre has to sit far
+      // enough inland that the whole loop stays on dry land
+      p.cx=Math.min(p.cx,SHORE_X-50);
       p.s=Math.random()*288;
     }
     const nearFast=player.veh&&Math.abs(player.veh.speed)>8&&(fdx*fdx+fdz*fdz)<64;
