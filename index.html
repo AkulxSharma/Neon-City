@@ -5710,7 +5710,7 @@ function trafficRespawn(v,t,pvx,pvz){
     t.lane=k*CELL+4.6*t.dirSign;
     t.pos=(t.axis==='x'?pvx:pvz)+(Math.random()<0.5?1:-1)*(120+Math.random()*130);
     const sx=t.axis==='x'?t.pos:t.lane, sz=t.axis==='x'?t.lane:t.pos;
-    if(!inShowroom(sx,sz)) return;
+    if(!inShowroom(sx,sz)&&!inSea(sx)) return;   // never respawn road traffic out on the water
   }
 }
 for(let i=0;i<22;i++){
