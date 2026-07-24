@@ -5718,7 +5718,7 @@ function updateSinking(dt,pvx,pvz){
       if(v!==player.veh&&!v.boat) v.g.position.y=SEA_Y+Math.sin(time*1.5+v.x*0.05)*0.06;
       continue;
     }
-    if(inSea(v.x)){
+    if(inSea(v.x)&&!onPier(v.x,v.z)){
       v.sink=Math.min(1,(v.sink||0)+dt*0.45);
       const damp=clamp(1-2.6*dt,0,1);
       v.speed*=damp; v.vLat=(v.vLat||0)*damp;      // engine drowns out, she stops driving
