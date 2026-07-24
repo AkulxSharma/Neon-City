@@ -3985,7 +3985,10 @@ seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.
 // deliberately ROUGH and non-metallic. The lake gets away with a glassy finish because
 // it's 36m across; on a 12km plane a smooth spec lobe becomes one enormous highlight that
 // the bloom pass smears into a solid white sheet. Choppy open water is the honest look.
-const seaMat=new THREE.MeshStandardMaterial({color:0x1b5f96,roughness:.82,metalness:0,emissive:0x0a2138,emissiveIntensity:.14,map:seaRippleTex});
+// tuned against the scene's haze: the fog is a pale blue that far out-brightens a
+// mid-blue surface, so the water has to be considerably darker than it "should" be
+// to still read as water at distance.
+const seaMat=new THREE.MeshStandardMaterial({color:0x0a3a60,roughness:.9,metalness:0,emissive:0x0a2138,emissiveIntensity:.04,map:seaRippleTex});
 // 12km square rather than a 32km slab: fog closes out at 430 units, so anything past
 // that is invisible anyway, and the smaller plane keeps depth precision sane at the
 // shoreline. It slides along Z with the player exactly like the street ground does.
