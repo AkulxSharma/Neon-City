@@ -5,6 +5,7 @@ import { useHudStore } from "@/lib/hudStore";
 export function HUD() {
   const speedKmh = useHudStore((s) => s.speedKmh);
   const grounded = useHudStore((s) => s.grounded);
+  const active = useHudStore((s) => s.active);
 
   return (
     <div
@@ -21,9 +22,13 @@ export function HUD() {
         userSelect: "none",
       }}
     >
+      <div style={{ fontSize: 11, opacity: 0.6, textTransform: "uppercase", letterSpacing: 1 }}>
+        {active}
+      </div>
       <div style={{ fontSize: 28, fontWeight: 700 }}>{speedKmh} km/h</div>
       <div style={{ fontSize: 11, opacity: 0.7 }}>
-        {grounded ? "grounded" : "airborne"} — WASD/arrows to drive, Space to handbrake
+        {active === "car" ? (grounded ? "grounded" : "airborne") : "afloat"} — WASD/arrows to
+        drive, Space to handbrake, B to switch car/boat
       </div>
     </div>
   );

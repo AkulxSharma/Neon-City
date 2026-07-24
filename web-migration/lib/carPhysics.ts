@@ -33,6 +33,20 @@ export const DEFAULT_HANDLING: CarHandling = {
   dragQ: 0.0016,
 };
 
+// Same formulas, boat-shaped constants (original game's BOAT_HANDLING): no tyres,
+// so almost no lateral grip — a hull carries its momentum wide through a turn and
+// keeps swinging after you let go. Slow to build speed, slow to stop.
+export const BOAT_HANDLING: CarHandling = {
+  max: 25,
+  accel: 10,
+  grip: 0.55,
+  turnGain: 1.15,
+  steerRamp: 2.2,
+  steerMin: 0.3,
+  drag: 0.22,
+  dragQ: 0.0009,
+};
+
 export interface CarInput {
   forward: boolean;
   back: boolean;

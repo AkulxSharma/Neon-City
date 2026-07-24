@@ -48,12 +48,18 @@ export function Car() {
     if (!body || !controller || !collider) return;
     const d = Math.min(dt, 0.05); // clamp like the original tick() to avoid a tab-switch spike
 
+    const isActive = useHudStore.getState().active === "car";
     const k = keys.current;
-    const steer = (k.left ? 1 : 0) - (k.right ? 1 : 0);
+    const steer = isActive ? (k.left ? 1 : 0) - (k.right ? 1 : 0) : 0;
 
     const { dx, dz } = stepCarPhysics(
       car.current,
-      { forward: k.forward, back: k.back, steer, handbrake: k.handbrake },
+      {
+        forward: isActive && k.forward,
+        back: isActive && k.back,
+        steer,
+        handbrake: isActive && k.handbrake,
+      },
       DEFAULT_HANDLING,
       d
     );
@@ -72,6 +78,8 @@ export function Car() {
 
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), car.current.h);
     body.setNextKinematicRotation(q);
+
+    if (!isActive) return;
 
     // chase camera — same lerp-follow shape as the original game's camPos/camLook
     const dir = new THREE.Vector3(Math.sin(car.current.h), 0, Math.cos(car.current.h));
