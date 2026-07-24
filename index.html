@@ -3972,6 +3972,29 @@ const waterRippleTex=canvasTex(128,128,g=>{
 });
 waterRippleTex.wrapS=waterRippleTex.wrapT=THREE.RepeatWrapping; waterRippleTex.repeat.set(3,3);
 const waterMat=new THREE.MeshStandardMaterial({color:0x3fa8e8,roughness:.15,metalness:.4,emissive:0x1a4a6a,emissiveIntensity:.4,map:waterRippleTex});
+
+// ================= THE COAST =================
+// the city grid is endless in every direction, so the sea isn't a hole in a finite
+// map — it's a line the generator refuses to build past. Chunks east of SHORE_X get
+// open water instead of streets, and one big static plane covers the lot.
+const SHORE_X=600, SEA_Y=0.2, SHORE_CI=Math.round(SHORE_X/CELL);
+function inSea(x){ return x>SHORE_X; }
+const seaRippleTex=waterRippleTex.clone();
+seaRippleTex.needsUpdate=true;
+seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.set(320,320);
+const seaMat=new THREE.MeshStandardMaterial({color:0x1d6ea8,roughness:.22,metalness:.55,emissive:0x0d2f4c,emissiveIntensity:.45,map:seaRippleTex});
+{
+  const SEA_W=32000, SEA_L=64000;
+  const sea=new THREE.Mesh(new THREE.PlaneGeometry(SEA_W,SEA_L),seaMat);
+  sea.rotation.x=-Math.PI/2;
+  sea.position.set(SHORE_X+SEA_W/2,SEA_Y,0);   // butts up against the shore, runs to the horizon
+  sea.receiveShadow=true; scene.add(sea);
+}
+const quayMat=new THREE.MeshStandardMaterial({color:0x6a6f78,roughness:.9,metalness:.05});
+const pilingMat=new THREE.MeshStandardMaterial({color:0x3a2e24,roughness:.95});
+const deckMat=new THREE.MeshStandardMaterial({color:0x8a6a44,roughness:.85});
+const buoyGeo=new THREE.ConeGeometry(0.7,2.2,8);
+const buoyMat=new THREE.MeshStandardMaterial({color:0xff5a2a,emissive:0x militia,emissiveIntensity:.3,roughness:.6});
 const benchSeatGeo=new THREE.BoxGeometry(1.9,0.1,0.55);
 const benchBackGeo=new THREE.BoxGeometry(1.9,0.5,0.08);
 const benchLegGeo=new THREE.BoxGeometry(0.08,0.35,0.5);
