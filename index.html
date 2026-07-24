@@ -4139,6 +4139,7 @@ function makePerson(o){
 // ---------- endless city chunks ----------
 const chunks=new Map();
 const staticColliders=[];
+const pierColliders=[];   // boat-only solid geometry (dock decks) -- see pierPush()
 const CLUB={cx:-50,cz:-50};
 const CLUB_IN={x:-50,z:-4050};   // club interior room, built far south so it never meets the city
 function mulberry(seed){ let a=seed>>>0; return function(){ a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
@@ -4153,6 +4154,7 @@ const LANDMARKS=[
   {name:'FOUNTAIN PLAZA', x:-150,     z:-150,        col:'#b06bff', kind:'plaza'},
   {name:'HARBOR LAKE',    x:50,       z:-250,        col:'#2fb8ff', kind:'water'},
   {name:'EAST MARINA',    x:SHORE_X-34, z:50,        col:'#2fe8ff', kind:'marina'},
+  {name:'POLICE HARBOR',  x:450,        z:50,        col:'#2452ff', kind:'police'},
 ];
 // smooth speed/grip penalty for driving into the lake — composes as a plain
 // multiplier alongside per-vehicle HANDLING and the weather wetGrip, so every
@@ -4173,7 +4175,7 @@ function waterFactor(x,z){
 // which chunk each buildable landmark sits in, so the generator forces it there
 const landmarkChunks={};
 for(const L of LANDMARKS){
-  if(L.kind==='club'||L.kind==='showroom') continue;
+  if(L.kind==='club'||L.kind==='showroom'||L.kind==='police') continue;
   const ci=Math.round((L.x-50)/CELL), cj=Math.round((L.z-50)/CELL);
   landmarkChunks[ci+','+cj]=L;
 }
@@ -4241,7 +4243,8 @@ function buildChunk(ci,cj){
   const isClub=(cx===CLUB.cx&&cz===CLUB.cz);
   const nearInt=Math.hypot(cx-CLUB_IN.x,cz-CLUB_IN.z)<140;
   const isShowroom=((ci===-1||ci===0)&&cj===0);
-  const isPark=!isClub&&!nearInt&&!isShowroom&&rand()<0.13;
+  const isPoliceStation=(ci===4&&cj===0);   // POLICE HARBOR STATION -- one block inland of the marina
+  const isPark=!isClub&&!nearInt&&!isShowroom&&!isPoliceStation&&rand()<0.13;
   const nycBlds=nycChunkBuildings[ci+','+cj];
   const isSeaChunk=ci>=SHORE_CI, isShoreChunk=ci===SHORE_CI-1;
 
@@ -4434,7 +4437,7 @@ function buildChunk(ci,cj){
       const crown=new THREE.Mesh(crownGeo,leafMats[Math.floor(rand()*3)]); crown.scale.set(r2,r2*0.85,r2); crown.position.set(x,h2+r2*0.5,z); crown.castShadow=true; grp.add(crown);
       cols.push({x0:x-0.4,x1:x+0.4,z0:z-0.4,z1:z+0.4});
     }
-  } else if(!isClub&&!nearInt&&!isShowroom){
+  } else if(!isClub&&!nearInt&&!isShowroom&&!isPoliceStation){
     if(nycBlds&&nycBlds.length>0){
       placeNycBuildings(nycBlds);
     } else {
@@ -4448,7 +4451,7 @@ function buildChunk(ci,cj){
     }
   }
   // traffic light at every other intersection
-  if(!isShowroom&&((ci+cj)%2+2)%2===0){
+  if(!isShowroom&&!isPoliceStation&&((ci+cj)%2+2)%2===0){
     const tlx=ci*CELL-ROAD_W/2-0.9, tlz=cj*CELL-ROAD_W/2-0.9;
     const tpole=new THREE.Mesh(tlPoleGeo,poleMat); tpole.position.set(tlx,2.7,tlz); grp.add(tpole);
     const thead=new THREE.Mesh(tlHeadGeo,tlHeadMat); thead.position.set(tlx,5.1,tlz); grp.add(thead);
@@ -4459,7 +4462,7 @@ function buildChunk(ci,cj){
       }
     });
     cols.push({x0:tlx-0.25,x1:tlx+0.25,z0:tlz-0.25,z1:tlz+0.25});
-  } else if(!isShowroom){
+  } else if(!isShowroom&&!isPoliceStation){
     // stop sign at the corners that don't get a traffic light -- every intersection controlled
     const sx=ci*CELL-ROAD_W/2-0.9, sz=cj*CELL-ROAD_W/2-0.9;
     const spole=new THREE.Mesh(stopSignPoleGeo,poleMat); spole.position.set(sx,1.3,sz); grp.add(spole);
@@ -4469,14 +4472,14 @@ function buildChunk(ci,cj){
     cols.push({x0:sx-0.15,x1:sx+0.15,z0:sz-0.15,z1:sz+0.15});
   }
   // street lamp at the chunk's intersection corner
-  if(!isShowroom){
+  if(!isShowroom&&!isPoliceStation){
     const lx=ci*CELL+ROAD_W/2+1.5, lz=cj*CELL+ROAD_W/2+1.5;
     const pole=new THREE.Mesh(poleGeo,poleMat); pole.position.set(lx,3.5,lz); grp.add(pole);
     const head=new THREE.Mesh(lampHeadGeo,lampHeadMat); head.position.set(lx,7,lz); grp.add(head);
     const spr=new THREE.Sprite(lampGlowMat); spr.scale.set(6,6,1); spr.position.set(lx,7,lz); grp.add(spr);
   }
   // trees
-  if(!isShowroom) for(let i=0;i<3;i++){
+  if(!isShowroom&&!isPoliceStation) for(let i=0;i<3;i++){
     const side=Math.floor(rand()*4), u=(rand()*2-1)*34, hs=38.5;
     const x=cx+(side===0?u:side===1?hs:side===2?u:-hs);
     const z=cz+(side===0?-hs:side===1?u:side===2?hs:-u);
@@ -4510,6 +4513,13 @@ function buildChunk(ci,cj){
       lampPost.position.set(SHORE_X+PIER_L-4,SEA_Y+2.7,zc); grp.add(lampPost);
       const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.35,10,8),new THREE.MeshBasicMaterial({color:0xffe6a8}));
       lamp.position.set(SHORE_X+PIER_L-4,SEA_Y+4.8,zc); grp.add(lamp);
+      // NOT pushed into the shared `cols` collider list -- the on-foot player needs to walk
+      // UP ONTO this exact footprint (see onPier/PIER_DECK_Y), and `collide()` is shared by
+      // every vehicle and the player's feet, so a solid collider here would wall the player
+      // (and land vehicles, e.g. a tractor climbing the dock) out along with boats.
+      // Boats get their own dedicated check instead: pierPush(), called only from the
+      // boat physics branch below.
+      pierColliders.push({x0:SHORE_X-2,x1:SHORE_X-2+PIER_L,z0:zc-4.5,z1:zc+4.5});
     }
   }
   scene.add(grp);
@@ -5216,28 +5226,51 @@ function makePorsche918(color){
   return grp;
 }
 
-function makeBike(color){
+function makeBike(color,opts){
+  opts=opts||{};
+  const isPolice=!!opts.police;
   const grp=new THREE.Group();
   const w1=wheel(0.36,0.14); w1.position.set(0,0.36,0.75); grp.add(w1);
   const w2=wheel(0.36,0.18); w2.position.set(0,0.36,-0.75); grp.add(w2);
-  const frame=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.3,1.35),carPaint(color)); frame.position.set(0,0.62,0); grp.add(frame);
-  const tank=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.24,0.6),carPaint(color)); tank.position.set(0,0.82,0.15); grp.add(tank);
+  const bikeCol=isPolice?0x0c0c0e:color;
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.3,1.35),carPaint(bikeCol)); frame.position.set(0,0.62,0); grp.add(frame);
+  const tank=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.24,0.6),carPaint(bikeCol)); tank.position.set(0,0.82,0.15); grp.add(tank);
   const seat=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.12,0.55),darkMat); seat.position.set(0,0.82,-0.42); grp.add(seat);
   const fork=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.8,6),rimMat); fork.position.set(0,0.72,0.72); fork.rotation.x=0.35; grp.add(fork);
   const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.6,6),darkMat); bar.rotation.z=Math.PI/2; bar.position.set(0,1.05,0.6); grp.add(bar);
   const hl=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8),lightOn); hl.position.set(0,0.9,0.95); grp.add(hl);
   const rider=new THREE.Group();
-  const torso=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.55,0.3),new THREE.MeshLambertMaterial({color:0x22262e})); torso.position.set(0,1.25,-0.25); torso.rotation.x=0.35; rider.add(torso);
+  const torso=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.55,0.3),new THREE.MeshLambertMaterial({color:isPolice?0x101826:0x22262e})); torso.position.set(0,1.25,-0.25); torso.rotation.x=0.35; rider.add(torso);
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,10),new THREE.MeshLambertMaterial({color:0x181a20})); head.position.set(0,1.6,-0.12); rider.add(head);
   rider.visible=false; grp.add(rider); grp.userData.rider=rider;
   grp.userData.frontWheels=[];
   grp.userData.spins=[w1.userData.spin,w2.userData.spin];
   grp.userData.wheelR=0.36;
+  if(isPolice){
+    // same red/blue pod + point-light rig every other police vehicle uses, just bike-sized
+    const barY=0.98, barZ=0.4;
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.06,0.14),darkMat); base.position.set(0,barY,barZ); grp.add(base);
+    const redMat=new THREE.MeshBasicMaterial({color:0x2a0000}), blueMat=new THREE.MeshBasicMaterial({color:0x00102a});
+    const podGeo=new THREE.BoxGeometry(0.13,0.07,0.12);
+    const rp=new THREE.Mesh(podGeo,redMat); rp.position.set(-0.08,barY+0.06,barZ); grp.add(rp);
+    const bp=new THREE.Mesh(podGeo,blueMat); bp.position.set(0.08,barY+0.06,barZ); grp.add(bp);
+    const light=new THREE.PointLight(0xff2020,0,16,2); light.position.set(0,barY+0.2,barZ); grp.add(light);
+    grp.userData.siren={kind:'police',redMat,blueMat,light};
+    const tex=canvasTex(128,40,c=>{
+      c.clearRect(0,0,128,40); c.fillStyle='#e8ecff'; c.font='900 22px Arial Black, Arial';
+      c.textAlign='center'; c.textBaseline='middle'; c.fillText('POLICE',64,20);
+    });
+    [-1,1].forEach(sgn=>{
+      const decal=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.16),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+      decal.position.set(sgn*0.115,0.62,0.15); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; grp.add(decal);
+    });
+  }
   return grp;
 }
 
 // ---------- vehicle roster ----------
 const vehicles=[];
+let nearBoatToBoard=null;   // set each frame the player's boat is touching another boat — E swaps into it
 // cheap "contact shadow" blob under every car — the sun is dim at night (this
 // game's default look), so real shadow-map shadows barely show then and cars
 // read as floating; this soft dark ellipse is always visible regardless of
@@ -5302,15 +5335,9 @@ const HANDLING={
 // plan-view hull outline (square stern, tapered bow) extruded downward into a hull,
 // same profile-extrude technique the police jeep body uses. Bow points +Z to match
 // every other vehicle's forward axis, so the shared drive loop needs no special case.
-function makeBoat(color,opts){
-  opts=opts||{};
-  const grp=new THREE.Group();
-  const hullMat=new THREE.MeshStandardMaterial({color:color,metalness:.35,roughness:.34});
-  const deckTopMat=new THREE.MeshStandardMaterial({color:0xd8d2c4,roughness:.75});
-  const cabinMat=new THREE.MeshStandardMaterial({color:0xf2f0ea,roughness:.5});
-  const glassMat=new THREE.MeshStandardMaterial({color:0x0a1a26,metalness:.9,roughness:.08,transparent:true,opacity:.55});
-
-  const HW=1.25, STERN=-3.1, BOW=4.0, DEPTH=1.2;
+// Shared by every boat type below (cruiser/speedboat/jetski/cargo/pirate) so the hull
+// shape only needs tuning in one place.
+function boatHullMesh(hullMat,HW,STERN,BOW,DEPTH){
   const s=new THREE.Shape();
   s.moveTo(-HW,STERN); s.lineTo(HW,STERN); s.lineTo(HW,1.5);
   s.quadraticCurveTo(HW*0.92,3.1, 0,BOW);
@@ -5318,19 +5345,174 @@ function makeBoat(color,opts){
   const hull=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:DEPTH,bevelEnabled:true,bevelSize:0.14,bevelThickness:0.12,bevelSegments:2}),hullMat);
   hull.rotation.x=Math.PI/2;        // shape +Y -> world +Z (bow forward), extrude -> downward
   hull.position.y=DEPTH+0.05;       // so the hull bottom sits just under the waterline
-  hull.castShadow=true; grp.add(hull);
+  hull.castShadow=true;
+  return hull;
+}
+// small canvas-drawn flags (geometric approximations, not official vexillography) so boats
+// can fly a national colour or the Jolly Roger — memoized per name, built once and reused
+const FLAG_TEX={};
+function flagTex(name){
+  if(FLAG_TEX[name]) return FLAG_TEX[name];
+  const t=canvasTex(64,40,c=>{
+    if(name==='usa'){
+      c.fillStyle='#b22234'; c.fillRect(0,0,64,40);
+      for(let i=1;i<40;i+=6){ c.fillStyle='#fff'; c.fillRect(0,i,64,3); }
+      c.fillStyle='#3c3b6e'; c.fillRect(0,0,26,20);
+    } else if(name==='uk'){
+      c.fillStyle='#00247d'; c.fillRect(0,0,64,40);
+      c.strokeStyle='#fff'; c.lineWidth=6; c.beginPath(); c.moveTo(0,0);c.lineTo(64,40);c.moveTo(64,0);c.lineTo(0,40); c.stroke();
+      c.strokeStyle='#cf142b'; c.lineWidth=8; c.beginPath(); c.moveTo(32,0);c.lineTo(32,40); c.moveTo(0,20);c.lineTo(64,20); c.stroke();
+    } else if(name==='japan'){
+      c.fillStyle='#fff'; c.fillRect(0,0,64,40);
+      c.fillStyle='#bc002d'; c.beginPath(); c.arc(32,20,11,0,Math.PI*2); c.fill();
+    } else if(name==='pirate'){
+      c.fillStyle='#0a0a0a'; c.fillRect(0,0,64,40);
+      c.fillStyle='#e8e8e0';
+      c.beginPath(); c.arc(32,17,8,0,Math.PI*2); c.fill();     // skull
+      c.fillRect(20,30,24,4);                                  // crossbones
+      c.save(); c.translate(32,30); c.rotate(0.6); c.fillRect(-14,-2,28,4); c.restore();
+      c.save(); c.translate(32,30); c.rotate(-0.6); c.fillRect(-14,-2,28,4); c.restore();
+    } else {                                                    // generic maritime signal stripes
+      const cols=['#e8e8e0','#1f4a7a','#e8e8e0'];
+      for(let i=0;i<3;i++){ c.fillStyle=cols[i]; c.fillRect(i*22,0,22,40); }
+    }
+  });
+  FLAG_TEX[name]=t; return t;
+}
+function attachFlag(grp,x,y,z,name){
+  const tex=flagTex(name);
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.55),new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide,roughness:.8}));
+  flag.position.set(x,y,z); flag.rotation.y=Math.PI/2; grp.add(flag);
+  return flag;
+}
+// small angled side mirrors on the console/cabin — cosmetic only (no real-time reflection,
+// just a shiny tinted disc) since this renderer doesn't do live mirror cameras
+function attachMirrors(grp,y,z){
+  const mirrMat=new THREE.MeshStandardMaterial({color:0x1f6fe0,metalness:.9,roughness:.12});
+  const armMat=new THREE.MeshStandardMaterial({color:0x1a1a1e,metalness:.5,roughness:.5});
+  for(const sx of [-1,1]){
+    const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.22,6),armMat);
+    arm.position.set(sx*0.6,y,z); arm.rotation.z=sx*0.5; grp.add(arm);
+    const mirr=new THREE.Mesh(new THREE.CircleGeometry(0.09,10),mirrMat);
+    mirr.position.set(sx*0.72,y+0.06,z); mirr.rotation.y=sx*0.9; grp.add(mirr);
+  }
+}
+function makeBoat(color,opts){
+  opts=opts||{};
+  const type=opts.type||'cruiser';
+  const grp=new THREE.Group();
+
+  if(type==='jetski'){
+    const hullMat=new THREE.MeshStandardMaterial({color:color,metalness:.3,roughness:.3});
+    const HW=0.55, DEPTH=0.5;
+    const hull=boatHullMesh(hullMat,HW,-1.4,1.9,DEPTH); grp.add(hull);
+    const seat=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.22,1.1),new THREE.MeshStandardMaterial({color:0x14161a,roughness:.7}));
+    seat.position.set(0,DEPTH+0.16,-0.15); seat.castShadow=true; grp.add(seat);
+    const bars=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.025,6,10,Math.PI),new THREE.MeshStandardMaterial({color:0x1a1a1e,metalness:.6}));
+    bars.position.set(0,DEPTH+0.42,0.55); bars.rotation.z=Math.PI; grp.add(bars);
+    const navLight=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8),new THREE.MeshBasicMaterial({color:opts.light||0xff4d4d}));
+    navLight.position.set(0,DEPTH+0.3,-0.9); grp.add(navLight);
+    attachMirrors(grp,DEPTH+0.5,0.5);
+    grp.userData.frontWheels=[]; grp.userData.wheelR=0.4; grp.userData.isBoat=true;
+    grp.userData.seatY=DEPTH+0.28; grp.userData.seatX=0; grp.userData.seatZ=-0.15;   // centered on the saddle seat above
+    if(opts.flag) attachFlag(grp,0,DEPTH+0.7,-0.9,opts.flag);
+    return grp;
+  }
+
+  if(type==='cargo'){
+    const hullMat=new THREE.MeshStandardMaterial({color:color,metalness:.25,roughness:.55});
+    const deckMat2=new THREE.MeshStandardMaterial({color:0x6a6a62,roughness:.9});
+    const HW=2.3, DEPTH=1.9;
+    const hull=boatHullMesh(hullMat,HW,-5.5,6.2,DEPTH); grp.add(hull);
+    const deck=new THREE.Mesh(new THREE.BoxGeometry(HW*1.8,0.15,9.5),deckMat2);
+    deck.position.set(0,DEPTH+0.12,-1); deck.receiveShadow=true; grp.add(deck);
+    const crateMat=[0xb0402a,0x2a6a8a,0x8a7a2a].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.85}));
+    for(let i=0;i<3;i++){
+      const crate=new THREE.Mesh(new THREE.BoxGeometry(1.5,1.3,1.5),crateMat[i%crateMat.length]);
+      crate.position.set((i-1)*1.7,DEPTH+0.85,-1.5); crate.castShadow=true; grp.add(crate);
+    }
+    const house=new THREE.Mesh(new THREE.BoxGeometry(HW*1.4,1.6,2.4),new THREE.MeshStandardMaterial({color:0xe8e8e2,roughness:.6}));
+    house.position.set(0,DEPTH+0.95,4.2); house.castShadow=true; grp.add(house);
+    const bridge=new THREE.Mesh(new THREE.BoxGeometry(HW*1.3,0.6,0.08),new THREE.MeshStandardMaterial({color:0x0a1a26,metalness:.8,roughness:.2,transparent:true,opacity:.6}));
+    bridge.position.set(0,DEPTH+1.95,3.1); bridge.rotation.x=-0.15; grp.add(bridge);
+    const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,2.2,6),new THREE.MeshStandardMaterial({color:0x2a2a2e}));
+    mast.position.set(0,DEPTH+3.1,4.0); grp.add(mast);
+    attachMirrors(grp,DEPTH+1.7,3.0);
+    const navLight=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,8),new THREE.MeshBasicMaterial({color:opts.light||0xffd76a}));
+    navLight.position.set(0,DEPTH+2.4,4.2); grp.add(navLight);
+    if(opts.flag) attachFlag(grp,0,DEPTH+2.2,4.7,opts.flag);
+    // captain's chair on the bridge floor, centred under the helm — was standing on empty air
+    const chairMatCg=new THREE.MeshStandardMaterial({color:0x1c1e24,roughness:.7});
+    const chairCg=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.3,0.34),chairMatCg);
+    chairCg.position.set(0,DEPTH+1.63,3.15); chairCg.castShadow=true; grp.add(chairCg);
+    grp.userData.frontWheels=[]; grp.userData.wheelR=0.4; grp.userData.isBoat=true;
+    grp.userData.seatY=DEPTH+1.78; grp.userData.seatX=0; grp.userData.seatZ=3.15;
+    return grp;
+  }
+
+  if(type==='pirate'){
+    const woodMat=new THREE.MeshStandardMaterial({color:0x4a2f18,roughness:.85});
+    const trimMat=new THREE.MeshStandardMaterial({color:0xd8b060,roughness:.6});
+    const HW=2.6, DEPTH=2.4;
+    const hull=boatHullMesh(woodMat,HW,-6.2,7.5,DEPTH); grp.add(hull);
+    const gunwale=new THREE.Mesh(new THREE.BoxGeometry(HW*1.9,0.5,13.5),trimMat);
+    gunwale.position.set(0,DEPTH+0.7,0); gunwale.castShadow=true; grp.add(gunwale);
+    const stern=new THREE.Mesh(new THREE.BoxGeometry(HW*1.7,2.0,1.6),woodMat);
+    stern.position.set(0,DEPTH+1.4,-5.3); stern.castShadow=true; grp.add(stern);
+    const mastMat=new THREE.MeshStandardMaterial({color:0x3a2818,roughness:.8});
+    const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.22,7.5,8),mastMat);
+    mast.position.set(0,DEPTH+3.8,0.5); grp.add(mast);
+    const yard=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,4.6,6),mastMat);
+    yard.rotation.z=Math.PI/2; yard.position.set(0,DEPTH+6.3,0.5); grp.add(yard);
+    const sail=new THREE.Mesh(new THREE.PlaneGeometry(4.2,3.2),new THREE.MeshStandardMaterial({color:0xe8e2d0,roughness:.9,side:THREE.DoubleSide}));
+    sail.position.set(0,DEPTH+4.7,0.55); grp.add(sail);
+    const nest=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.3,0.4,8),woodMat);
+    nest.position.set(0,DEPTH+7.2,0.5); grp.add(nest);
+    const bowsprit=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,2.4,6),mastMat);
+    bowsprit.rotation.x=Math.PI/2-0.3; bowsprit.position.set(0,DEPTH+1.0,7.8); grp.add(bowsprit);
+    attachMirrors(grp,DEPTH+1.9,2.2);
+    attachFlag(grp,0,DEPTH+8.0,0.5,'pirate');
+    const navLight=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,8),new THREE.MeshBasicMaterial({color:opts.light||0xff4d4d}));
+    navLight.position.set(0,DEPTH+1.6,-5.8); grp.add(navLight);
+    // helmsman's chair on top of the stern deck, centred at the wheel — was standing on empty air
+    const chairMatPr=new THREE.MeshStandardMaterial({color:0x2a1a0c,roughness:.8});
+    const chairPr=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.32,0.36),chairMatPr);
+    chairPr.position.set(0,DEPTH+2.56,-4.3); chairPr.castShadow=true; grp.add(chairPr);
+    grp.userData.frontWheels=[]; grp.userData.wheelR=0.4; grp.userData.isBoat=true;
+    grp.userData.seatY=DEPTH+2.72; grp.userData.seatX=0; grp.userData.seatZ=-4.3;
+    return grp;
+  }
+
+  // ---- cruiser (default) / speedboat (open-top variant) ----
+  const openTop=type==='speedboat'||opts.openRoof;
+  const isPolice=!!opts.police;
+  const hullMat=new THREE.MeshStandardMaterial({color:isPolice?0x0c0c0e:color,metalness:.35,roughness:isPolice?.5:.34});
+  const deckTopMat=new THREE.MeshStandardMaterial({color:isPolice?0x1a1a1e:0xd8d2c4,roughness:.75});
+  const cabinMat=new THREE.MeshStandardMaterial({color:isPolice?0x0c0c0e:0xf2f0ea,roughness:.5});
+  const glassMat=new THREE.MeshStandardMaterial({color:0x0a1a26,metalness:.9,roughness:.08,transparent:true,opacity:.55});
+
+  const HW=type==='speedboat'?1.05:1.25, STERN=-3.1, BOW=type==='speedboat'?4.4:4.0, DEPTH=type==='speedboat'?0.95:1.2;
+  const hull=boatHullMesh(hullMat,HW,STERN,BOW,DEPTH); grp.add(hull);
 
   const deck=new THREE.Mesh(new THREE.BoxGeometry(HW*1.85,0.12,6.2),deckTopMat);
   deck.position.set(0,DEPTH+0.11,0.25); deck.receiveShadow=true; grp.add(deck);
 
-  const cabin=new THREE.Mesh(new THREE.BoxGeometry(HW*1.5,0.95,2.3),cabinMat);
-  cabin.position.set(0,DEPTH+0.6,-0.35); cabin.castShadow=true; grp.add(cabin);
+  if(!openTop){
+    const cabin=new THREE.Mesh(new THREE.BoxGeometry(HW*1.5,0.95,2.3),cabinMat);
+    cabin.position.set(0,DEPTH+0.6,-0.35); cabin.castShadow=true; grp.add(cabin);
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(HW*1.62,0.09,2.5),deckTopMat);
+    roof.position.set(0,DEPTH+1.1,-0.35); roof.castShadow=true; grp.add(roof);
+  } else {
+    // open-top: a low console instead of a full cabin, so the driver bust stays visible
+    const console_=new THREE.Mesh(new THREE.BoxGeometry(HW*1.3,0.55,0.7),cabinMat);
+    console_.position.set(0,DEPTH+0.38,0.55); console_.castShadow=true; grp.add(console_);
+  }
   const screen=new THREE.Mesh(new THREE.BoxGeometry(HW*1.42,0.62,0.08),glassMat);
-  screen.position.set(0,DEPTH+0.68,0.82); screen.rotation.x=-0.22; grp.add(screen);
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(HW*1.62,0.09,2.5),deckTopMat);
-  roof.position.set(0,DEPTH+1.1,-0.35); roof.castShadow=true; grp.add(roof);
+  screen.position.set(0,DEPTH+(openTop?0.62:0.68),openTop?0.85:0.82); screen.rotation.x=-0.22; grp.add(screen);
 
-  const rail=new THREE.MeshStandardMaterial({color:0xc9ced6,metalness:1,roughness:.25});
+  attachMirrors(grp,DEPTH+(openTop?0.85:0.95),openTop?0.9:0.7);
+
+  const rail=new THREE.MeshStandardMaterial({color:isPolice?0x2a2a2e:0xc9ced6,metalness:1,roughness:.25});
   for(const sx of [-1,1]){          // bow rails
     const r=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,2.6),rail);
     r.position.set(sx*HW*0.8,DEPTH+0.45,2.3); r.rotation.y=sx*0.18; grp.add(r);
@@ -5340,16 +5522,70 @@ function makeBoat(color,opts){
   const navLight=new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8),new THREE.MeshBasicMaterial({color:opts.light||0xff4d4d}));
   navLight.position.set(0,DEPTH+2.6,-0.35); grp.add(navLight);
 
+  if(opts.flag) attachFlag(grp,0,DEPTH+1.4,-1.45,opts.flag);
+
+  if(isPolice){
+    // roof light bar (reuses the same red/blue pod look as the police jeep/cruiser)
+    const barY=DEPTH+(openTop?1.0:1.18), barZ=-0.35;
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.08,0.28),new THREE.MeshStandardMaterial({color:0x0a0a0e}));
+    base.position.set(0,barY,barZ); grp.add(base);
+    const redMat=new THREE.MeshBasicMaterial({color:0x2a0000}), blueMat=new THREE.MeshBasicMaterial({color:0x00102a});
+    const podGeo=new THREE.BoxGeometry(0.13,0.09,0.24);
+    for(let i=0;i<2;i++){ const m=new THREE.Mesh(podGeo,redMat); m.position.set(-0.24+i*0.14,barY+0.07,barZ); grp.add(m); }
+    for(let i=0;i<2;i++){ const m=new THREE.Mesh(podGeo,blueMat); m.position.set(0.1+i*0.14,barY+0.07,barZ); grp.add(m); }
+    const light=new THREE.PointLight(0xff2020,0,26,2); light.position.set(0,barY+0.3,barZ); grp.add(light);
+    grp.userData.siren={kind:'police',redMat,blueMat,light};
+    // "POLICE" decal on both hull sides, mirrored so the text reads correctly from either side
+    [[-1,false],[1,true]].forEach(([sgn,mir])=>{
+      const tex=canvasTex(256,64,c=>{
+        c.clearRect(0,0,256,64);
+        if(mir){ c.translate(256,0); c.scale(-1,1); }
+        c.fillStyle='#e8ecff'; c.font='900 34px Arial Black, Arial'; c.textAlign='center'; c.textBaseline='middle';
+        c.fillText('POLICE',128,34);
+      });
+      const decal=new THREE.Mesh(new THREE.PlaneGeometry(1.7,0.42),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+      decal.position.set(sgn*(HW+0.02),DEPTH-0.1,1.0); decal.rotation.y=sgn>0?Math.PI/2:-Math.PI/2; grp.add(decal);
+    });
+  }
+
+  // helm chair on the deck, centred (was offset to the car left-seat position and
+  // floating above nothing) — sits just behind the console/cabin wheel
+  const chairMatCr=new THREE.MeshStandardMaterial({color:0x14161a,roughness:.7});
+  const chairZCr=openTop?0.15:-0.35;
+  const chairCr=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.14,0.34),chairMatCr);
+  chairCr.position.set(0,DEPTH+0.24,chairZCr); chairCr.castShadow=true; grp.add(chairCr);
+  const chairBackCr=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.32,0.06),chairMatCr);
+  chairBackCr.position.set(0,DEPTH+0.42,chairZCr-0.16); grp.add(chairBackCr);
+
   // the drive loop reads these on every vehicle — a boat just has no wheels to turn or spin
   grp.userData.frontWheels=[];
   grp.userData.wheelR=0.4;
-  grp.userData.seatY=DEPTH+0.55;
+  grp.userData.seatY=DEPTH+0.31;
+  grp.userData.seatX=0;
+  grp.userData.seatZ=chairZCr;
   grp.userData.isBoat=true;
   return grp;
 }
 // handling: no tyres, so almost no lateral grip — a boat carries its momentum wide
 // through a turn and keeps swinging after you let go. Slow to build speed, slow to stop.
 const BOAT_HANDLING={grip:0.55,turnGain:1.15,steerRamp:2.2,steerMin:.30,drag:.22,dragQ:.0009};
+// jet ski: light and nimble, actually bites into a turn instead of drifting wide
+const JETSKI_HANDLING={grip:3.2,turnGain:1.6,steerRamp:1.3,steerMin:.34,drag:.30,dragQ:.0012};
+// cargo ship / pirate galleon: heavy and slow to turn, momentum carries a long way
+const CARGO_HANDLING={grip:0.30,turnGain:0.45,steerRamp:3.4,steerMin:.20,drag:.16,dragQ:.0007};
+const PIRATE_HANDLING={grip:0.28,turnGain:0.40,steerRamp:3.6,steerMin:.18,drag:.15,dragQ:.0006};
+// scenery-only boats: pure decoration, no vehicle physics, no addVehicle/collision/E-to-board.
+// Just a gently bobbing mesh added straight to the scene, for a lived-in harbour backdrop.
+const sceneryBoats=[];
+function addSceneryBoat(x,z,h,color,opts){
+  const g=makeBoat(color,opts);
+  g.position.set(x,SEA_Y,z); g.rotation.y=h;
+  scene.add(g);
+  sceneryBoats.push({g,x,z});
+}
+function updateSceneryBoats(){
+  for(const s of sceneryBoats) s.g.position.y=SEA_Y+Math.sin(time*1.2+s.x*0.05+s.z*0.03)*0.05;
+}
 
 // ---------- seated driver bust shown inside every roaming car ----------
 const DRV_SKIN=[0xd9a066,0x8a5a2b,0xf0c8a0,0x6b4423,0xc79a6b,0xa06a3a];
@@ -5372,14 +5608,18 @@ function makeDriver(){
 function attachDriver(v){
   if(v.isBike) return;
   const drv=makeDriver();
-  const sy=(v.g.userData.seatY!==undefined)?v.g.userData.seatY:0.62;
-  drv.position.set(-0.36, sy, -0.15);
+  const ud=v.g.userData;
+  const sy=(ud.seatY!==undefined)?ud.seatY:0.62;
+  const sx=(ud.seatX!==undefined)?ud.seatX:-0.36;   // cars: offset to the left-hand seat
+  const sz=(ud.seatZ!==undefined)?ud.seatZ:-0.15;
+  drv.position.set(sx, sy, sz);
   v.g.add(drv); v.g.userData.driver=drv;
 }
 // hurl the NPC driver out the side door when the player jacks a car — they
 // tumble across the tarmac (reusing the pedestrian ragdoll), then get up and flee
 function ejectDriver(v){
   const d=v.g.userData.driver; if(d) d.visible=false;
+  v.g.userData.driverGone=true;   // permanently gone -- toggleVehicle must not re-show this bust on dismount
   const g=makePerson({ skin:DRV_SKIN[(Math.random()*DRV_SKIN.length)|0], shirt:DRV_SHIRT[(Math.random()*DRV_SHIRT.length)|0],
     pants:DRV_PANTS[(Math.random()*DRV_PANTS.length)|0], female:Math.random()<0.4, sleeves:Math.random()<0.6 });
   g.position.set(v.x,0.9,v.z); scene.add(g);
@@ -5674,9 +5914,79 @@ addVehicle(makeBike(0xc82fff),'NEON RIDER',60,38,true,CLUB.cx+16,CLUB.cz+22,Math
 
 // ---- EAST MARINA: boats moored alongside the pier, boardable with E like any car ----
 const boatOpts=()=>Object.assign({},BOAT_HANDLING,{isBoat:true});
-addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88}),'SEA SPRITE',34,13,false,SHORE_X+13,58,Math.PI/2,null,boatOpts());
-addVehicle(makeBoat(0x1f4a7a,{light:0x4dff88}),'HARBOR CAT',30,11,false,SHORE_X+25,42,-Math.PI/2,null,boatOpts());
-addVehicle(makeBoat(0xd8121a,{light:0xffd76a}),'RED TIDE', 40,16,false,SHORE_X+40,58,Math.PI/2,null,boatOpts());
+const FLAGS=['usa','uk','japan','stripes'];
+addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88,flag:'usa'}),'SEA SPRITE',34,13,false,SHORE_X+13,58,Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0x1f4a7a,{light:0x4dff88,flag:'uk'}),'HARBOR CAT',30,11,false,SHORE_X+25,42,-Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0xd8121a,{light:0xffd76a,flag:'japan'}),'RED TIDE', 40,16,false,SHORE_X+40,58,Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0xe0d8c0,{light:0x4dff88,type:'speedboat',flag:'stripes'}),'SPRAY RUNNER',38,15,false,SHORE_X+52,42,-Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0,{police:true,light:0xff2020}),'MARINE PATROL',52,26,false,SHORE_X+13,74,Math.PI/2,null,boatOpts());   // fastest hull on the water — outruns the jetski (44/22)
+addVehicle(makeBoat(0xffb020,{type:'jetski',light:0x4dff88}),'WAVE RUNNER',44,22,false,SHORE_X+30,74,Math.PI/2,null,Object.assign({},JETSKI_HANDLING,{isBoat:true}));
+addVehicle(makeBoat(0x8a5a2b,{type:'cargo',light:0xffd76a,flag:'stripes'}),'IRON FREIGHT',16,6,false,SHORE_X+70,90,Math.PI/2,null,Object.assign({},CARGO_HANDLING,{isBoat:true}));
+addVehicle(makeBoat(0x4a2f18,{type:'pirate'}),'BLACK REVENGE',14,5,false,SHORE_X+95,42,-Math.PI/2,null,Object.assign({},PIRATE_HANDLING,{isBoat:true}));
+// ---- POLICE HARBOR fleet: two more patrol boats moored right at the dock, easy to spot ----
+addVehicle(makeBoat(0,{police:true,light:0xff2020}),'HARBOR GUARD 2',48,24,false,SHORE_X+13,20,Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0,{police:true,light:0xff2020}),'HARBOR GUARD 3',48,24,false,SHORE_X+25,6,-Math.PI/2,null,boatOpts());
+for(const v of vehicles) if(v.isBoat) attachDriver(v);
+
+// ---- POLICE HARBOR STATION: on the road side of the dock, one block inland of the marina ----
+{
+  const PX=450, PZ=50, PW=64, PD=40;
+  const pg=new THREE.Group();
+  const padMat=new THREE.MeshStandardMaterial({color:0x1a1c22,roughness:.9});
+  const pad=new THREE.Mesh(new THREE.PlaneGeometry(PW,PD),padMat);
+  pad.rotation.x=-Math.PI/2; pad.position.set(PX,0.03,PZ); pad.receiveShadow=true; pg.add(pad);
+  // station house
+  const wallMat=new THREE.MeshStandardMaterial({color:0x2a2e3a,roughness:.7});
+  const trimMat=new THREE.MeshBasicMaterial({color:0x2452ff});
+  const house=new THREE.Mesh(new THREE.BoxGeometry(26,9,16),wallMat);
+  house.position.set(PX,4.5,PZ-PD/2+9); house.castShadow=true; house.receiveShadow=true; pg.add(house);
+  const trim=new THREE.Mesh(new THREE.BoxGeometry(26.4,0.6,16.4),trimMat);
+  trim.position.set(PX,8.9,PZ-PD/2+9); pg.add(trim);
+  const doorMat=new THREE.MeshStandardMaterial({color:0x0c0e14,roughness:.4,metalness:.3});
+  const door=new THREE.Mesh(new THREE.BoxGeometry(4.2,5.5,0.2),doorMat);
+  door.position.set(PX,2.75,PZ-PD/2+9+8.05); pg.add(door);
+  const signTex=canvasTex(512,112,c=>{
+    c.fillStyle='#07080c'; c.fillRect(0,0,512,112);
+    c.fillStyle='#4d78ff'; c.font='900 46px Arial'; c.textAlign='center'; c.textBaseline='middle';
+    c.shadowColor='#2452ff'; c.shadowBlur=18; c.fillText('POLICE HARBOR STATION',256,58);
+  });
+  signTex.encoding=THREE.sRGBEncoding;
+  const signM=new THREE.Mesh(new THREE.PlaneGeometry(19,4.2),new THREE.MeshBasicMaterial({map:signTex,transparent:true}));
+  signM.position.set(PX,10.6,PZ-PD/2+9+8.05); pg.add(signM);
+  // beacon lights flanking the door, using the exact police red/blue flash rig
+  const poleMat=new THREE.MeshStandardMaterial({color:0x2a2d34,metalness:.6,roughness:.4});
+  [-1,1].forEach(sgn=>{
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,4,8),poleMat);
+    pole.position.set(PX+sgn*6.5,2,PZ-PD/2+9+8.1); pole.castShadow=true; pg.add(pole);
+    const redMat=new THREE.MeshBasicMaterial({color:0xff1818}), blueMat=new THREE.MeshBasicMaterial({color:0x2452ff});
+    const rp=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8),redMat); rp.position.set(PX+sgn*6.5,4.1,PZ-PD/2+9+8.1); pg.add(rp);
+    const bp=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8),blueMat); bp.position.set(PX+sgn*6.5,3.7,PZ-PD/2+9+8.1); pg.add(bp);
+  });
+  // painted parking bays for the fleet
+  const bayMat=new THREE.MeshBasicMaterial({color:0xf4e39a});
+  for(let i=0;i<=6;i++){
+    const lx=PX-PW/2+6+i*((PW-12)/6);
+    const ln=new THREE.Mesh(new THREE.PlaneGeometry(0.16,7),bayMat);
+    ln.rotation.x=-Math.PI/2; ln.position.set(lx,0.05,PZ+PD/2-6); pg.add(ln);
+  }
+  scene.add(pg);
+}
+// parked, boardable police fleet in the station's bays -- reuses the exact same
+// makeEmergency/makeBike siren rig every roaming police unit uses, "use every police setting"
+[-22,-11,0,11,22].forEach((ox,i)=>{
+  if(i<3){
+    const nv=addVehicle(makeEmergency('police'),'POLICE CRUISER',83.3,70,false,450+ox,68,Math.PI,null);
+    nv.noEject=true; nv.steerRamp=5.5; nv.turnGain=1.9;
+    attachDriver(nv);
+  } else {
+    const nv=addVehicle(makeBike(0,{police:true}),'POLICE BIKE',66,46,true,450+ox,68,Math.PI,null);
+    nv.noEject=true;
+  }
+});
+// ---- scenery-only boats: far out in the harbour, pure backdrop, not boardable ----
+addSceneryBoat(SHORE_X+220,-140,0.4,0x2f4f7a,{flag:'uk'});
+addSceneryBoat(SHORE_X+260,90,-1.1,0xc84f4f,{type:'speedboat',flag:'usa'});
+addSceneryBoat(SHORE_X+180,220,2.0,0x8a5a2b,{type:'cargo',flag:'japan'});
 
 // ---- AI harbour traffic: boats running north/south lanes out in the open water ----
 const boatTraffic=[];
@@ -5693,9 +6003,12 @@ function boatRespawn(v,pvz,initial){
 {
   const hulls=[0xe8e8ee,0x2f4f7a,0xc84f4f,0x2a2e38,0x1f7a5a,0xd8a23a,0x8a5a2b];
   for(let i=0;i<9;i++){
-    const v=addVehicle(makeBoat(hulls[i%hulls.length],{light:0x4dff88}),'HARBOUR RUNNER',30,12,false,0,0,0,null,boatOpts());
+    const cargo=i===8;                                    // one of the nine is a slow commercial hull, for variety
+    const v=addVehicle(makeBoat(hulls[i%hulls.length],{light:0x4dff88,flag:FLAGS[i%FLAGS.length],type:cargo?'cargo':undefined}),
+      cargo?'HARBOUR FREIGHT':'HARBOUR RUNNER',cargo?16:30,cargo?6:12,false,0,0,0,null,cargo?Object.assign({},CARGO_HANDLING,{isBoat:true}):boatOpts());
     v.boat={lane:0,dir:1,speed:10};
     boatRespawn(v,0,true);
+    attachDriver(v);
     boatTraffic.push(v);
   }
 }
@@ -5719,7 +6032,7 @@ function updateSinking(dt,pvx,pvz){
       continue;
     }
     if(inSea(v.x)&&!onPier(v.x,v.z)){
-      v.sink=Math.min(1,(v.sink||0)+dt*0.45);
+      v.sink=Math.min(1,(v.sink||0)+dt*1.05);   // ~1s to fully go under, not the old lingering 2.2s
       const damp=clamp(1-2.6*dt,0,1);
       v.speed*=damp; v.vLat=(v.vLat||0)*damp;      // engine drowns out, she stops driving
       v.g.position.y=-v.sink*SINK_DEPTH;
@@ -5761,15 +6074,25 @@ function updateSinking(dt,pvx,pvz){
 // simple lane-runners: they hold a heading and a lane and recycle around the player.
 // Not the road-traffic AI — there are no lanes, junctions or lights to obey out here.
 function updateBoatTraffic(dt,pvx,pvz){
+  // a police boat running its siren clears the water: everyone else eases to a stop and
+  // drifts off to whichever side they're already on, same spirit as road traffic yielding
+  // for a police car/ambulance, just with a lane-shift instead of a kerb pull-over
+  const sirenOn=player.veh&&player.veh.isBoat&&player.veh.g.userData.siren&&player.veh.g.userData.siren.kind==='police'&&lightMode!==2;
   for(const v of boatTraffic){
     const b=v.boat;
     if(v===player.veh){                                   // player took the helm: track it, don't drive it
       b.lane=v.x; b.dir=Math.cos(v.h)>=0?1:-1;
       continue;
     }
+    let targetSpeed=b.speed, laneShift=0;
+    if(sirenOn){
+      const dx=v.x-player.veh.x, dz=v.z-player.veh.z;
+      if(dx*dx+dz*dz<130*130){ targetSpeed=0; laneShift=(Math.sign(dx)||1)*0.6; }
+    }
+    v.speed=lerp(v.speed||b.speed,targetSpeed,dt*2.5);
+    b.lane+=laneShift*dt;
     v.h=b.dir>0?0:Math.PI;
-    v.speed=b.speed;
-    v.x=b.lane; v.z+=b.dir*b.speed*dt;
+    v.x=b.lane; v.z+=v.speed*b.dir*dt;
     v.g.position.set(v.x,SEA_Y+Math.sin(time*1.5+v.x*0.05)*0.07,v.z);
     v.g.rotation.y=v.h;
     if(Math.abs(v.z-pvz)>1000||Math.abs(v.x-pvx)>1600) boatRespawn(v,pvz,false);
@@ -6124,7 +6447,8 @@ function spawnBoatAhead(){
   const d=player.veh?14:9;
   let x=src.x+Math.sin(src.h)*d, z=src.z+Math.cos(src.h)*d;
   if(x<SHORE_X+6) x=SHORE_X+14;                  // a boat on tarmac is useless — always put her in the water
-  addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88}),'SEA SPRITE',34,13,false,x,z,src.h,null,boatOpts());
+  const nv=addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88,flag:FLAGS[Math.floor(Math.random()*FLAGS.length)]}),'SEA SPRITE',34,13,false,x,z,src.h,null,boatOpts());
+  attachDriver(nv);
   showMsg('BOAT MOORED OFF THE QUAY — PRESS E');
 }
 const CHEATS={ porche:spawnPorscheAhead, porsche:spawnPorscheAhead, boat:spawnBoatAhead };   // his spelling and the real one
@@ -6515,6 +6839,22 @@ function collide(x,z,r){
   return [x,z,hit];
 }
 
+// boat-only collision against dock decks -- separate from collide()/cols so land
+// vehicles never see this wall (they climb onto docks the same as any kerb)
+function pierPush(x,z,r){
+  let hit=false;
+  for(const c of pierColliders){
+    const nx=clamp(x,c.x0,c.x1), nz=clamp(z,c.z0,c.z1);
+    const dx=x-nx, dz=z-nz, d2=dx*dx+dz*dz;
+    if(d2<r*r){
+      hit=true;
+      const d=Math.sqrt(d2)||0.001;
+      x=nx+dx/d*r; z=nz+dz/d*r;
+    }
+  }
+  return [x,z,hit];
+}
+
 function nearestVehicle(x,z,maxD){
   let best=null,bd=maxD*maxD;
   for(const v of vehicles){
@@ -6525,6 +6865,18 @@ function nearestVehicle(x,z,maxD){
 }
 
 function toggleVehicle(){
+  if(player.veh&&player.veh.isBoat&&nearBoatToBoard){
+    const old=player.veh, nb=nearBoatToBoard;
+    if(old.g.userData.driver&&!old.g.userData.driverGone) old.g.userData.driver.visible=true;
+    const stolen=!!nb.traffic;
+    if(stolen) ejectDriver(nb);
+    else if(nb.g.userData.driver) nb.g.userData.driver.visible=false;
+    nb.traffic=null; nb.vLat=0;
+    player.veh=nb; nearBoatToBoard=null;
+    showMsg((stolen?'BOARDED: ':'SWITCHED TO: ')+nb.name);
+    saveGame();
+    return;
+  }
   if(player.veh){
     const v=player.veh;
     const sx=v.x+Math.cos(v.h)*2.4, sz=v.z-Math.sin(v.h)*2.4;
@@ -6532,6 +6884,7 @@ function toggleVehicle(){
     player.x=r[0]; player.z=r[1]; player.h=v.h;
     if(v.isBike&&v.g.userData.rider) v.g.userData.rider.visible=false;
     if(v.g.userData.cab) v.g.userData.cab.visible=true;
+    if(v.g.userData.driver&&!v.g.userData.driverGone) v.g.userData.driver.visible=true;   // crew's back at the seat
     player.veh=null; player.onFoot=true; player.speed=0;
     pMesh.visible=true;
     headL.intensity=headR.intensity=0;
@@ -6543,6 +6896,7 @@ function toggleVehicle(){
     if(!v) return;
     const stolen=!!v.traffic;
     if(stolen) ejectDriver(v);
+    else if(v.g.userData.driver) v.g.userData.driver.visible=false;   // player takes the seat, the bust steps aside
     v.traffic=null;
     player.veh=v; player.onFoot=false; v.vLat=0;
     pMesh.visible=false;
@@ -6912,18 +7266,34 @@ function tick(now){
     const nz=v.z+(ch*vlong-sh*vlat)*dt;
     const rr=collide(nx,nz,1.3);
     if(rr[2]){
-      const preSpd=Math.abs(v.speed);
       v.speed*=-0.22; v.vLat*=0.35;
-      if(preSpd>41.7&&!v.isBike&&!v.noEject){ ejectPlayer(v,preSpd); }
     }
     v.x=rr[0]; v.z=rr[1];
+    // a boat stays in the water -- the shore is a hard wall for hulls (everything else
+    // just bogs down/turns back near it, but a boat has no business ever reaching the road)
+    if(v.isBoat&&v.x<SHORE_X+1.5){ v.x=SHORE_X+1.5; v.speed*=0.25; v.vLat=(v.vLat||0)*0.25; }
+    // and the reverse: dry-land vehicles have no business ever reaching the open sea —
+    // the kerb is a hard wall the other way, mirroring the boat clamp above
+    if(!v.isBoat&&v.x>SHORE_X-1.5){ v.x=SHORE_X-1.5; v.speed*=0.25; v.vLat=(v.vLat||0)*0.25; }
+    // dock/pier: solid for hulls only (pierPush), so boats can't ghost through the deck —
+    // land vehicles keep climbing onto it same as always, no collider added to `cols` for it
+    if(v.isBoat){
+      const pr=pierPush(v.x,v.z,2.0);
+      if(pr[2]){
+        v.speed*=-0.22; v.vLat=(v.vLat||0)*0.35;
+      }
+      v.x=pr[0]; v.z=pr[1];
+    }
+    if(v.isBoat) nearBoatToBoard=null;
     for(const o of vehicles){
       if(o===v) continue;
       const dx=v.x-o.x,dz=v.z-o.z,d2=dx*dx+dz*dz;
       if(d2<9&&d2>0.001){
-        const preSpd2=Math.abs(v.speed);
+        const bothBoats=v.isBoat&&o.isBoat;
+        if(bothBoats&&v===player.veh) nearBoatToBoard=o;   // alongside another hull: offer E to switch
         const d=Math.sqrt(d2); v.x=o.x+dx/d*3; v.z=o.z+dz/d*3; v.speed*=0.6; v.vLat=(v.vLat||0)*0.4;
-        if(preSpd2>41.7&&!v.isBike&&!v.noEject&&player.veh){ ejectPlayer(v,preSpd2); }
+        // boat-on-boat bump never throws the driver in the water — that's what the
+        // switch-boats option (E, see toggleVehicle) is for instead
       }
     }
     if(v.isBoat){
@@ -6933,6 +7303,7 @@ function tick(now){
       v.g.rotation.y=v.h;
       v.g.rotation.x=-clamp(sp/40,0,1)*0.10+Math.sin(time*1.3+v.z*0.05)*0.012;
       v.g.rotation.z=clamp((v.vLat||0)/9,-1,1)*0.16;
+      if(nearBoatToBoard){ hintEl.style.display='block'; hintEl.innerHTML='Press <b style="color:#ffd76a">E</b> to switch to — '+nearBoatToBoard.name; }
     } else {
       v.g.position.set(v.x,0,v.z); v.g.rotation.y=v.h;
     }
@@ -7008,18 +7379,36 @@ function tick(now){
   ensureChunks(pvx,pvz);
   ground.position.set(Math.round(pvx/CELL)*CELL,0,Math.round(pvz/CELL)*CELL);
   updateBoatTraffic(dt,pvx,pvz);
+  updateSceneryBoats();
   seaMesh.position.z=Math.round(pvz/CELL)*CELL;            // slide the sea along the coast with the player
   seaRippleTex.offset.y=(time*0.006)%1;                    // slow swell drifting up the coast
   seaRippleTex.offset.x=Math.sin(time*0.05)*0.004;
 
   // ----- police convoy: recruit nearby police NPC when player siren active -----
+  // hull-matched: a boat siren only ever recruits other boats (road cars used to get
+  // pulled straight off the kerb and out across the water toward the player's boat,
+  // ignoring roads entirely — that was the "cars glitching on the sea" bug) and a car
+  // siren only ever recruits other cars.
   const playerSirenOn=player.veh&&player.veh.g.userData.siren&&player.veh.g.userData.siren.kind==='police'&&lightMode!==2;
+  const playerOnBoat=!!(player.veh&&player.veh.isBoat);
   let convoyIdx=0;
   for(const v of vehicles){
+    if(v.isBoat){
+      const sir=v.g.userData.siren;
+      if(!sir||sir.kind!=='police') { v.convoy=false; continue; }
+      if(playerSirenOn&&playerOnBoat&&v!==player.veh){
+        if(!v.convoy){
+          const d2=(v.x-player.veh.x)**2+(v.z-player.veh.z)**2;
+          if(d2<160*160) v.convoy=true;   // boats are spread further apart along the coast
+        }
+      } else v.convoy=false;
+      if(v.convoy) v.convoySlot=++convoyIdx;
+      continue;
+    }
     if(!v.traffic) continue;
     const sir=v.g.userData.siren;
     if(!sir||sir.kind!=='police') continue;
-    if(playerSirenOn){
+    if(playerSirenOn&&!playerOnBoat){
       if(!v.convoy){
         const d2=(v.x-player.veh.x)**2+(v.z-player.veh.z)**2;
         if(d2<70*70) v.convoy=true;
@@ -7028,6 +7417,27 @@ function tick(now){
       v.convoy=false;
     }
     if(v.convoy) v.convoySlot=++convoyIdx;
+  }
+
+  // ----- boat convoy: recruited police hulls fall in behind the player's boat -----
+  if(playerSirenOn&&playerOnBoat){
+    for(const v of vehicles){
+      if(!v.isBoat||!v.convoy||v===player.veh) continue;
+      const ph=player.veh.h;
+      const dist=v.convoySlot*9+10, latOff=(v.convoySlot%2===0?1:-1)*5;
+      const tx=player.veh.x-Math.sin(ph)*dist+Math.cos(ph)*latOff;
+      const tz=player.veh.z-Math.cos(ph)*dist-Math.sin(ph)*latOff;
+      const dx=tx-v.x, dz=tz-v.z, gap=Math.sqrt(dx*dx+dz*dz);
+      const spd=Math.max(Math.abs(player.veh.speed)*1.1,gap*2,14);
+      if(gap>0.4){ const step=Math.min(spd*dt,gap); v.x+=dx/gap*step; v.z+=dz/gap*step; }
+      const aimH=Math.atan2(dx,dz);
+      let dh=aimH-v.h; while(dh>Math.PI) dh-=2*Math.PI; while(dh<-Math.PI) dh+=2*Math.PI;
+      v.h+=dh*clamp(dt*4,0,1);
+      v.speed=gap>0.4?spd:0;
+      v.g.position.set(v.x,SEA_Y+Math.sin(time*1.7+v.x*0.05)*0.07,v.z);
+      v.g.rotation.y=v.h;
+      const sir=v.g.userData.siren; if(sir) flashSiren(sir,time,true);
+    }
   }
 
   // ----- collect active siren sources for traffic yielding (only when player siren is on) -----
