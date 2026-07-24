@@ -4226,6 +4226,20 @@ function buildChunk(ci,cj){
   const isShowroom=((ci===-1||ci===0)&&cj===0);
   const isPark=!isClub&&!nearInt&&!isShowroom&&rand()<0.13;
   const nycBlds=nycChunkBuildings[ci+','+cj];
+  const isSeaChunk=ci>=SHORE_CI, isShoreChunk=ci===SHORE_CI-1;
+
+  if(isSeaChunk){
+    // open water — no streets, no blocks, nothing to collide with. Just the odd
+    // channel-marker buoy so the sea isn't a featureless sheet at speed.
+    if(rand()<0.35){
+      const buoy=new THREE.Mesh(buoyGeo,buoyMat);
+      buoy.position.set(cx+(rand()-0.5)*70,SEA_Y+1.1,cz+(rand()-0.5)*70);
+      buoy.castShadow=true; grp.add(buoy);
+    }
+    scene.add(grp);
+    chunks.set(ci+','+cj,{grp,cols,geos,ci,cj});
+    return;
+  }
 
   function building(x,z,w,h,d){
     const roadHalf=ROAD_W/2+2;
