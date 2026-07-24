@@ -5751,8 +5751,10 @@ function updateSinking(dt,pvx,pvz){
     if(player.drown>=1) washAshore();
   } else {
     player.drown=0;
-    // stand on the pier deck (it's a raised platform) instead of clipping through it
-    if(!player.veh&&onPier(player.x,player.z)) pMesh.position.y=Math.max(pMesh.position.y,PIER_DECK_Y);
+    // stand on the pier deck (a raised platform), with the deck as the jump floor.
+    // ADD player.py on top of the deck height — clamping with max() instead swallowed
+    // the first PIER_DECK_Y metres of every jump, so jumps barely showed.
+    if(!player.veh&&onPier(player.x,player.z)) pMesh.position.y=PIER_DECK_Y+player.py;
   }
 }
 
