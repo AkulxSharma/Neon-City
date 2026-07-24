@@ -7121,6 +7121,18 @@ function tick(now){
         }
       }
     }
+    // ---- don't drive into the sea. Only x-axis eastbound cars ever head at the
+    //      coast (z-axis lanes run parallel to it, and their fixed x-lane is always
+    //      inland). Brake on the approach, then U-turn at the kerb and head back into
+    //      the city — so traffic turns away instead of plunging in and being recycled.
+    if(t.axis==='x'&&t.dirSign>0){
+      const distToShore=(SHORE_X-6)-t.pos;                  // stop line just short of the kerb
+      if(distToShore<=0){                                   // reached the water's edge: turn around
+        t.pos=SHORE_X-6; t.dirSign=-1; v.speed*=0.5;
+      } else if(distToShore<22){
+        blocked=true;                                       // ease to a halt over the last stretch
+      }
+    }
     // yield to nearby sirens — pull to road edge and slow down
     let yielding=false;
     if(!v.g.userData.siren){
