@@ -6,6 +6,14 @@ zustand (HUD state). The original file is untouched and still fully playable —
 this folder is a from-scratch parallel build, following the phased plan below.
 Nothing here is wired back into the original game yet.
 
+**Goal is full look-and-feel parity with the original**, not just matching
+physics. "Feel" (Milestone 1) is done — the driving math is ported verbatim.
+"Look" is in progress (Milestone 3) — bloom, exact colors, and real vehicle
+silhouettes are in; the actual procedural city (buildings-as-real-shapes with
+baked window textures, roads, landmarks, club interior, minimap, HUD chrome)
+is not ported yet and is the bulk of what's left. Read each milestone below
+for exactly what currently matches vs. what's still a placeholder.
+
 ## How to run
 
 ```bash
@@ -123,8 +131,58 @@ plane currently overlap in X — the original game has a hard `SHORE_X`
 coastline boundary, this doesn't yet. Fine for a physics-validation slice,
 worth fixing when `World.tsx` becomes the real chunk-streamed city.
 
+## Milestone 3 — visual parity pass (2026-07-24)
+
+**Goal:** the user asked explicitly for the web version to look and feel like
+the original, not just drive like it. Everything up to Milestone 2 used
+placeholder boxes on purpose (physics validation first). This milestone
+brings the *existing* pieces (car, boat, sky, world) toward the original's
+actual look before adding more scope on top of the wrong visuals.
+
+**What now matches the original, specifically:**
+- **Bloom**: `EffectComposer` + `Bloom` (luminance threshold 0.82, intensity
+  0.9) — the exact numbers from the original's `UnrealBloomPass`. Only true
+  emissive materials (headlights, taillights, boat nav light) cross that
+  threshold and glow; body paint and lit building facades sit just under it,
+  same split the original deliberately tunes for.
+- **Sky colors**: `cDay`/`cNight` are now the original's literal hex values
+  (`0x7ec4f2` / `0x05070f`), not approximations. Cycle now starts at night —
+  the look every reference screenshot in this conversation has been.
+- **Car silhouette**: real body-+ set-back-cabin stack instead of one box, on
+  four wheel cylinders, randomized from the original's exact `sedanColors`
+  array, emissive head/tail lights.
+- **Boat**: blue-tinted mirrors (the literal fix from the original's own
+  `attachMirrors` — same hex, `#1f6fe0`) and an emissive red bow light.
+- **Buildings**: grey/glass color palette matching the original's
+  `facadeMats`/`glassTowerMats` tones, and now fade in a warm emissive glow at
+  night (`skyState.nightK`, a module-level value `SkyCycle` updates every
+  frame so any component can read the current night factor without a
+  re-render) — approximating "lit windows at night" without the original's
+  baked canvas window texture.
+
+**Still a placeholder, not yet matching:** the actual procedural city
+generation (chunk streaming, real building shapes/textures, roads with lane
+markings, sidewalks, trees, parks, landmarks, the club interior, AUTO YARD,
+POLICE HARBOR STATION), pedestrians, traffic AI, the minimap/HUD chrome, and
+audio. World.tsx is still 7 boxes in a field. This is the honest gap between
+"looks like the original in the small" (true now) and "looks like the
+original" (not yet) — closing it is most of what's left in Phase 3/5/6.
+
+**New shared pattern:** `skyState` (a plain mutable object exported from
+`SkyCycle.tsx`, not React state/context) is how per-frame environment values
+get shared across components cheaply. Reach for this again for anything else
+that changes every frame and many components need to read (time of day,
+weather, siren-active) rather than adding it to `hudStore` (which is for
+values the *UI* renders, and re-renders on).
+
+**Files changed:** `components/Game.tsx` (bloom), `components/SkyCycle.tsx`
+(exact colors, `skyState`), `components/Car.tsx` (real silhouette),
+`components/Boat.tsx` (mirrors, nav light), `components/World.tsx`
+(palette + night-emissive buildings).
+
 ## Next up
 
-Phase 3 (part 2): a bike (lean angle, different grip), then basic traffic AI
-(a few cars driving themselves, no player input). Will report back at the
-next milestone.
+Two tracks from here, in order: (1) more of Phase 3 — a bike, then basic
+traffic AI; (2) start on the real city generation in `World.tsx`, since that's
+the single biggest remaining gap between this and "looks exactly like the
+original." Will report back at the next milestone.

@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { SkyCycle } from "@/components/SkyCycle";
 import { World } from "@/components/World";
 import { Water } from "@/components/Water";
@@ -31,6 +32,11 @@ export default function Game() {
             <Car />
             <Boat />
           </Physics>
+          {/* threshold-gated like the original's UnrealBloomPass(strength .9, threshold
+              .82) — only true emissive neon blooms, not the lit ground/facades */}
+          <EffectComposer>
+            <Bloom intensity={0.9} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur />
+          </EffectComposer>
         </Suspense>
       </Canvas>
       <HUD />

@@ -39,7 +39,9 @@ export function Car() {
     };
   }, [world]);
 
-  const carBox = useMemo(() => new THREE.Vector3(1.9, 1.1, 4.2), []);
+  // overall envelope used for the collider — roughly the original's city-sedan
+  // spec (len 4.6, wid 1.85); local y=0 is the car's vertical mid-point
+  const carBox = useMemo(() => new THREE.Vector3(1.85, 1.3, 4.6), []);
 
   useFrame((_, dt) => {
     const body = bodyRef.current;
@@ -100,19 +102,56 @@ export function Car() {
   return (
     <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, 1, 0]}>
       <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
-      <mesh castShadow>
-        <boxGeometry args={[carBox.x, carBox.y, carBox.z]} />
-        <meshStandardMaterial color="#e0483c" />
-      </mesh>
-      {/* headlight stand-ins, just so heading is readable at a glance */}
-      <mesh position={[0.6, 0, carBox.z / 2]}>
-        <boxGeometry args={[0.25, 0.15, 0.05]} />
-        <meshBasicMaterial color="#fff6d0" />
-      </mesh>
-      <mesh position={[-0.6, 0, carBox.z / 2]}>
-        <boxGeometry args={[0.25, 0.15, 0.05]} />
-        <meshBasicMaterial color="#fff6d0" />
-      </mesh>
+      <CarMesh />
     </RigidBody>
+  );
+}
+
+// Original sedan silhouette, approximated: low wide body + a set-back cabin/roof,
+// four wheels, emissive head/tail lights (bright enough to trip the bloom pass'
+// luminance threshold — see Game.tsx).
+const SEDAN_COLORS = ["#8b93a1", "#3a3f4a", "#7a2020", "#1f4a7a", "#cfd3da", "#2a5a3a", "#5a4a7a"];
+
+function CarMesh() {
+  const bodyColor = useMemo(
+    () => SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)],
+    []
+  );
+  const wheelMat = <meshStandardMaterial color="#111318" roughness={0.6} />;
+
+  return (
+    <group>
+      <mesh castShadow position={[0, -0.2, 0]}>
+        <boxGeometry args={[1.85, 0.9, 4.6]} />
+        <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.4} />
+      </mesh>
+      <mesh castShadow position={[0, 0.53, -0.3]}>
+        <boxGeometry args={[1.5, 0.55, 2.3]} />
+        <meshStandardMaterial color="#14161a" metalness={0.2} roughness={0.15} />
+      </mesh>
+      {[
+        [0.85, -0.62, 1.55],
+        [-0.85, -0.62, 1.55],
+        [0.85, -0.62, -1.55],
+        [-0.85, -0.62, -1.55],
+      ].map((p, i) => (
+        <mesh key={i} position={p as [number, number, number]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.36, 0.36, 0.28, 14]} />
+          {wheelMat}
+        </mesh>
+      ))}
+      {[0.6, -0.6].map((x) => (
+        <mesh key={`hl-${x}`} position={[x, -0.15, 2.28]}>
+          <boxGeometry args={[0.25, 0.15, 0.05]} />
+          <meshBasicMaterial color="#fff6d0" />
+        </mesh>
+      ))}
+      {[0.65, -0.65].map((x) => (
+        <mesh key={`tl-${x}`} position={[x, -0.15, -2.28]}>
+          <boxGeometry args={[0.2, 0.12, 0.05]} />
+          <meshBasicMaterial color="#ff2020" />
+        </mesh>
+      ))}
+    </group>
   );
 }

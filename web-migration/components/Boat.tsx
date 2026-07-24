@@ -81,11 +81,23 @@ export function Boat() {
     <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[pos.current.x, WATER_LEVEL, pos.current.z]}>
       <mesh castShadow>
         <boxGeometry args={[hullSize.x, hullSize.y, hullSize.z]} />
-        <meshStandardMaterial color="#e8e2d0" />
+        <meshStandardMaterial color="#e8e2d0" metalness={0.35} roughness={0.34} />
       </mesh>
       <mesh position={[0, hullSize.y / 2 + 0.4, -0.6]}>
         <boxGeometry args={[hullSize.x * 0.7, 0.8, 1.6]} />
-        <meshStandardMaterial color="#c9ced6" />
+        <meshStandardMaterial color="#f2f0ea" roughness={0.5} />
+      </mesh>
+      {/* blue-tinted mirrors, same fix as the original game's makeBoat/attachMirrors */}
+      {[-1, 1].map((sx) => (
+        <mesh key={sx} position={[sx * 0.72, hullSize.y / 2 + 0.95, 0.7]} rotation={[0, sx * 0.9, 0]}>
+          <circleGeometry args={[0.09, 10]} />
+          <meshStandardMaterial color="#1f6fe0" metalness={0.9} roughness={0.12} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {/* bow nav light — emissive, trips the bloom pass */}
+      <mesh position={[0, hullSize.y / 2 + 0.3, hullSize.z / 2 - 0.3]}>
+        <sphereGeometry args={[0.11, 8, 8]} />
+        <meshBasicMaterial color="#ff4d4d" />
       </mesh>
     </RigidBody>
   );
