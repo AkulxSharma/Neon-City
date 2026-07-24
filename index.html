@@ -5703,7 +5703,12 @@ function washAshore(msg){
 }
 function updateSinking(dt,pvx,pvz){
   for(const v of vehicles){
-    if(v.isBoat) continue;
+    if(v.isBoat){
+      // moored boats are driven by nobody, so nothing else sets their height — sit them
+      // on the waterline with a slow bob instead of leaving them at y=0, half under it
+      if(v!==player.veh&&!v.boat) v.g.position.y=SEA_Y+Math.sin(time*1.5+v.x*0.05)*0.06;
+      continue;
+    }
     if(inSea(v.x)){
       v.sink=Math.min(1,(v.sink||0)+dt*0.45);
       const damp=clamp(1-2.6*dt,0,1);
