@@ -4148,6 +4148,9 @@ function waterFactor(x,z){
     const t=clamp((wz.r+14-d)/14,0,1);
     k=Math.min(k,lerp(1,0.32,t));
   }
+  // the open sea: nose a car off the quay and it bogs down hard rather than
+  // skimming across. Boats opt out of this entirely (see the drive loop).
+  if(x>SHORE_X-10) k=Math.min(k,lerp(1,0.12,clamp((x-(SHORE_X-10))/18,0,1)));
   return k;
 }
 // which chunk each buildable landmark sits in, so the generator forces it there
