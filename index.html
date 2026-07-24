@@ -6931,6 +6931,7 @@ function tick(now){
   ensureChunks(pvx,pvz);
   ground.position.set(Math.round(pvx/CELL)*CELL,0,Math.round(pvz/CELL)*CELL);
   updateBoatTraffic(dt,pvx,pvz);
+  seaMesh.position.z=Math.round(pvz/CELL)*CELL;            // slide the sea along the coast with the player
   seaRippleTex.offset.y=(time*0.006)%1;                    // slow swell drifting up the coast
   seaRippleTex.offset.x=Math.sin(time*0.05)*0.004;
 
