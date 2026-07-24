@@ -5856,9 +5856,31 @@ document.querySelectorAll('#camsel button').forEach(b=>{
   b.addEventListener('mousedown',e=>e.preventDefault());   // never steal keyboard focus from the game
   b.addEventListener('click',()=>{ setCamMode(+b.dataset.m); b.blur(); });
 });
+// ---- cheat codes: just type the word while playing, GTA-style (no console, no menu) ----
+function spawnPorscheAhead(){
+  const src=player.veh||player;                    // works on foot AND while you're already driving
+  const d=player.veh?12:7;                         // extra clearance so it never lands on your bonnet
+  const x=src.x+Math.sin(src.h)*d, z=src.z+Math.cos(src.h)*d;
+  addVehicle(customCar('royce',0x0c0c0e),'PORSCHE 918',125,60,false,x,z,src.h,null,HANDLING.royce);
+  showMsg('PORSCHE 918 DELIVERED — PRESS E');
+}
+const CHEATS={ porche:spawnPorscheAhead, porsche:spawnPorscheAhead };   // his spelling and the real one
+let cheatBuf='', cheatLast=0;
+// feed one letter in. returns true when that letter is part of a live cheat, so the caller
+// swallows it — otherwise typing "porche" would also toggle the camera (C) and the help panel (H).
+function cheatFeed(ch){
+  const now=performance.now();
+  if(now-cheatLast>1500) cheatBuf='';              // pause mid-word and the sequence resets
+  cheatLast=now;
+  cheatBuf=(cheatBuf+ch).slice(-24);
+  for(const c in CHEATS) if(cheatBuf.endsWith(c)){ cheatBuf=''; CHEATS[c](); return true; }
+  for(const c in CHEATS) for(let n=1;n<c.length;n++) if(cheatBuf.endsWith(c.slice(0,n))) return true;
+  return false;
+}
 addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
   if(!keys[e.code]){
+    if(/^Key[A-Z]$/.test(e.code) && cheatFeed(e.code.slice(3).toLowerCase())){ keys[e.code]=true; initAudio(); return; }
     if(e.code==='KeyE'){ if(!clubDoorAction()) toggleVehicle(); }
     if(e.code==='Space'){
       spaceTap=true;
