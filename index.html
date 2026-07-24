@@ -5690,6 +5690,54 @@ function boatRespawn(v,pvz,initial){
     boatTraffic.push(v);
   }
 }
+// ---------- sinking: a hull floats, nothing else does ----------
+// Runs as its own pass AFTER every other loop has written g.position, because the
+// drive loop and the traffic loop each stamp y=0 on their vehicles every frame —
+// anything trying to hold a car under the surface earlier would just get overwritten.
+const SINK_DEPTH=4.4, DROWN_DEPTH=2.6;
+function washAshore(msg){
+  player.drown=0; player.py=0; player.vy=0;
+  player.x=SHORE_X-14; player.h=Math.PI;          // dumped back on the quay facing the city
+  pMesh.position.set(player.x,0,player.z);
+  showMsg(msg||'WASHED ASHORE');
+}
+function updateSinking(dt,pvx,pvz){
+  for(const v of vehicles){
+    if(v.isBoat) continue;
+    if(inSea(v.x)){
+      v.sink=Math.min(1,(v.sink||0)+dt*0.45);
+      const damp=clamp(1-2.6*dt,0,1);
+      v.speed*=damp; v.vLat=(v.vLat||0)*damp;      // engine drowns out, she stops driving
+      v.g.position.y=-v.sink*SINK_DEPTH;
+      v.g.rotation.z=v.sink*0.5;                   // rolls onto her side on the way down
+      if(v.sink>=1){
+        if(player.veh===v){                        // bail out before she's fully under
+          player.veh=null; player.onFoot=true; player.speed=0;
+          pMesh.visible=true;
+          if(v.g.userData.cab) v.g.userData.cab.visible=true;
+          headL.intensity=headR.intensity=0;
+          player.z=v.z;
+          washAshore('SHE WENT DOWN — YOU SWAM FOR IT');
+          saveGame();
+        } else if(v.traffic){                      // recycle NPC cars rather than littering the seabed
+          const t=v.traffic;
+          v.sink=0; v.g.position.y=0; v.g.rotation.z=0;
+          trafficRespawn(v,t,pvx,pvz);
+          v.x=t.axis==='x'?t.pos:t.lane; v.z=t.axis==='x'?t.lane:t.pos;
+        }
+        // an abandoned player car just stays on the bottom where it sank
+      }
+    } else if(v.sink){                             // hauled back onto dry land somehow — reset
+      v.sink=0; v.g.position.y=0; v.g.rotation.z=0;
+    }
+  }
+  if(!player.veh&&inSea(player.x)){                // on foot: you don't walk on water either
+    player.drown=Math.min(1,(player.drown||0)+dt*0.5);
+    pMesh.position.y=-player.drown*DROWN_DEPTH;
+    if(player.drown>=1) washAshore();
+  } else player.drown=0;
+}
+
 // simple lane-runners: they hold a heading and a lane and recycle around the player.
 // Not the road-traffic AI — there are no lanes, junctions or lights to obey out here.
 function updateBoatTraffic(dt,pvx,pvz){
