@@ -4306,7 +4306,9 @@ function buildChunk(ci,cj){
   if(lm){
     // ================= named landmark =================
     if(lm.kind==='marina'){                                  // EAST MARINA: quay + pier are built by the waterfront pass below
-      const apron=new THREE.Mesh(new THREE.PlaneGeometry(84,84),stoneMat);
+      // deliberately the dull grey quay material, not stoneMat — a light plaza this
+      // size blows straight out under the bloom pass and reads as a white void.
+      const apron=new THREE.Mesh(new THREE.PlaneGeometry(84,84),quayMat);
       apron.rotation.x=-Math.PI/2; apron.position.set(cx,0.05,cz); apron.receiveShadow=true; grp.add(apron);
     } else if(lm.kind==='tower'){                            // SKY TOWER: one giant glass spire
       building(cx,cz, 30, 152, 30);
