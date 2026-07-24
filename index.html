@@ -7037,7 +7037,10 @@ function tick(now){
     }
 
     const ddx=v.x-pvx, ddz=v.z-pvz;
-    if(ddx*ddx+ddz*ddz>260*260||inShowroom(v.x,v.z)){
+    // ...or it has driven off the quay. Excluding the sea from trafficRespawn only
+    // fixed where cars are PLACED — a car already running an x-axis lane keeps going
+    // straight out over the water, because its lane doesn't know the coast exists.
+    if(ddx*ddx+ddz*ddz>260*260||inShowroom(v.x,v.z)||inSea(v.x)){
       if(v.convoy) continue;
       trafficRespawn(v,t,pvx,pvz);
       v.x=t.axis==='x'?t.pos:t.lane; v.z=t.axis==='x'?t.lane:t.pos;
