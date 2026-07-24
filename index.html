@@ -6492,11 +6492,15 @@ const mm=document.getElementById('minimap').getContext('2d');
 function drawMinimap(pvx,pvz,ph){
   const R=180, S=R/360, C=R/2;
   mm.fillStyle='#11141c'; mm.fillRect(0,0,R,R);
+  // the coast, in minimap pixels: sea fills everything east of it and the street
+  // grid stops there, so the shoreline reads without drawing it as its own shape
+  const shoreSX=clamp(C+(SHORE_X-pvx)*S,0,R);
+  if(shoreSX<R){ mm.fillStyle='#12395e'; mm.fillRect(shoreSX,0,R-shoreSX,R); }
   mm.fillStyle='#3a3f4c';
   const k0=Math.floor((pvx-180)/CELL), k1=Math.ceil((pvx+180)/CELL);
-  for(let k=k0;k<=k1;k++){ mm.fillRect(C+(k*CELL-pvx)*S-ROAD_W*S/2,0,ROAD_W*S,R); }
+  for(let k=k0;k<=k1;k++){ if(k*CELL>SHORE_X) continue; mm.fillRect(C+(k*CELL-pvx)*S-ROAD_W*S/2,0,ROAD_W*S,R); }
   const j0=Math.floor((pvz-180)/CELL), j1=Math.ceil((pvz+180)/CELL);
-  for(let j=j0;j<=j1;j++){ mm.fillRect(0,C+(j*CELL-pvz)*S-ROAD_W*S/2,R,ROAD_W*S); }
+  for(let j=j0;j<=j1;j++){ mm.fillRect(0,C+(j*CELL-pvz)*S-ROAD_W*S/2,shoreSX,ROAD_W*S); }
   // route line following roads
   if(navTarget){
     const route=getNavRoute(pvx,pvz,navTarget.x,navTarget.z);
