@@ -6797,7 +6797,7 @@ function tick(now){
     steerVis=lerp(steerVis,steer,Math.min(1,dt*8));
     // tyre smoke pours off the rear wheels while drifting or braking hard
     const drifting=(hb||Math.abs(v.vLat||0)>4.5)&&Math.abs(v.speed)>6, hardBrake=backKey()&&v.speed>13;
-    if(!v.isBike&&(drifting||hardBrake)){
+    if(!v.isBike&&!v.isBoat&&(drifting||hardBrake)){
       smokeAcc+=dt;
       while(smokeAcc>0.035){
         smokeAcc-=0.035;
