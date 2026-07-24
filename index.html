@@ -6037,7 +6037,15 @@ function spawnPorscheAhead(){
   addVehicle(customCar('royce',0x0c0c0e),'PORSCHE 918',125,60,false,x,z,src.h,null,HANDLING.royce);
   showMsg('PORSCHE 918 DELIVERED — PRESS E');
 }
-const CHEATS={ porche:spawnPorscheAhead, porsche:spawnPorscheAhead };   // his spelling and the real one
+function spawnBoatAhead(){
+  const src=player.veh||player;
+  const d=player.veh?14:9;
+  let x=src.x+Math.sin(src.h)*d, z=src.z+Math.cos(src.h)*d;
+  if(x<SHORE_X+6) x=SHORE_X+14;                  // a boat on tarmac is useless — always put her in the water
+  addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88}),'SEA SPRITE',34,13,false,x,z,src.h,null,boatOpts());
+  showMsg('BOAT MOORED OFF THE QUAY — PRESS E');
+}
+const CHEATS={ porche:spawnPorscheAhead, porsche:spawnPorscheAhead, boat:spawnBoatAhead };   // his spelling and the real one
 let cheatBuf='', cheatLast=0;
 // feed one letter in. returns true when that letter is part of a live cheat, so the caller
 // swallows it — otherwise typing "porche" would also toggle the camera (C) and the help panel (H).
