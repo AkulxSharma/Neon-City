@@ -5653,6 +5653,51 @@ addVehicle(makeBike(0xff7a1f),'VIPER 1000',62,40,true,-26,14.8,Math.PI);
 addVehicle(MODELS.rosso(),'ROSSO GT',66,36,false,CLUB.cx-14,CLUB.cz+22,Math.PI/2,null,HANDLING.rosso);
 addVehicle(makeBike(0xc82fff),'NEON RIDER',60,38,true,CLUB.cx+16,CLUB.cz+22,Math.PI/2);
 
+// ---- EAST MARINA: boats moored alongside the pier, boardable with E like any car ----
+const boatOpts=()=>Object.assign({},BOAT_HANDLING,{isBoat:true});
+addVehicle(makeBoat(0xf2f2f4,{light:0x4dff88}),'SEA SPRITE',34,13,false,SHORE_X+13,58,Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0x1f4a7a,{light:0x4dff88}),'HARBOR CAT',30,11,false,SHORE_X+25,42,-Math.PI/2,null,boatOpts());
+addVehicle(makeBoat(0xd8121a,{light:0xffd76a}),'RED TIDE', 40,16,false,SHORE_X+40,58,Math.PI/2,null,boatOpts());
+
+// ---- AI harbour traffic: boats running north/south lanes out in the open water ----
+const boatTraffic=[];
+function boatRespawn(v,pvz,initial){
+  const b=v.boat;
+  b.dir=Math.random()<0.5?1:-1;
+  b.speed=7+Math.random()*13;
+  b.lane=SHORE_X+80+Math.random()*560;                    // keep well clear of the quay
+  v.x=b.lane;
+  v.z=initial?(Math.random()-0.5)*700:pvz-b.dir*(260+Math.random()*260);
+  v.h=b.dir>0?0:Math.PI;
+  v.speed=b.speed; v.vLat=0;
+}
+{
+  const hulls=[0xe8e8ee,0x2f4f7a,0xc84f4f,0x2a2e38,0x1f7a5a,0xd8a23a,0x8a5a2b];
+  for(let i=0;i<9;i++){
+    const v=addVehicle(makeBoat(hulls[i%hulls.length],{light:0x4dff88}),'HARBOUR RUNNER',30,12,false,0,0,0,null,boatOpts());
+    v.boat={lane:0,dir:1,speed:10};
+    boatRespawn(v,0,true);
+    boatTraffic.push(v);
+  }
+}
+// simple lane-runners: they hold a heading and a lane and recycle around the player.
+// Not the road-traffic AI — there are no lanes, junctions or lights to obey out here.
+function updateBoatTraffic(dt,pvx,pvz){
+  for(const v of boatTraffic){
+    const b=v.boat;
+    if(v===player.veh){                                   // player took the helm: track it, don't drive it
+      b.lane=v.x; b.dir=Math.cos(v.h)>=0?1:-1;
+      continue;
+    }
+    v.h=b.dir>0?0:Math.PI;
+    v.speed=b.speed;
+    v.x=b.lane; v.z+=b.dir*b.speed*dt;
+    v.g.position.set(v.x,SEA_Y+Math.sin(time*1.5+v.x*0.05)*0.07,v.z);
+    v.g.rotation.y=v.h;
+    if(Math.abs(v.z-pvz)>1000||Math.abs(v.x-pvx)>1600) boatRespawn(v,pvz,false);
+  }
+}
+
 // traffic
 const sedanColors=[0x8b93a1,0x3a3f4a,0x7a2020,0x1f4a7a,0xcfd3da,0x2a5a3a,0x5a4a7a];
 const SR_X0=-86,SR_X1=-10,SR_Z0=11,SR_Z1=41;
