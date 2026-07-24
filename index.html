@@ -5081,11 +5081,17 @@ function makePorsche918(color){
   const wheelMat=new THREE.MeshStandardMaterial({color:0x1a1a1e,metalness:.6,roughness:.4});
   const wheelScale=1.12;   // slightly bigger than the extracted mesh to close the fender-arch gap
   const trackX=Math.abs(meta.wheelOffsetX), frontZ=meta.wheelOffsetZ, rearZ=frontZ-2.73, r=meta.wheelRadius*wheelScale;
+  // the extracted wheel faces outward on ONE side only (the side it came from). Dropped in
+  // unchanged on the opposite side it shows its hollow inner dish instead of the spoke face,
+  // so yaw those two 180° — a rotation, not a negative scale, which would invert the normals.
+  const srcSide=Math.sign(meta.wheelOffsetX)||1;
   const fw=[], spins=[];
   [[-trackX,frontZ,true],[trackX,frontZ,true],[-trackX,rearZ,false],[trackX,rearZ,false]].forEach(([wx,wz,isFront])=>{
     const pivot=new THREE.Group(); pivot.position.set(wx,r,wz);
     const spin=new THREE.Group(); pivot.add(spin);
-    const mesh=new THREE.Mesh(wheelGeo,wheelMat); mesh.scale.setScalar(wheelScale); mesh.castShadow=true; spin.add(mesh);
+    const mesh=new THREE.Mesh(wheelGeo,wheelMat); mesh.scale.setScalar(wheelScale); mesh.castShadow=true;
+    if(Math.sign(wx)!==srcSide) mesh.rotation.y=Math.PI;   // face the spokes out on the far side
+    spin.add(mesh);
     grp.add(pivot); spins.push(spin); if(isFront) fw.push(pivot);
   });
   grp.userData.frontWheels=fw;
