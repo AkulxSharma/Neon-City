@@ -6739,7 +6739,7 @@ function tick(now){
     // nitro only fires on SHIFT+accelerate AND while fuel remains; fuel burns while boosting,
     // refills when not (full 10s tank recharges over ~20s). Boost lifts the top-speed cap by
     // +150 km/h with strong extra thrust so the car actually reaches it.
-    const nitroWant=(kd('ShiftLeft')||kd('ShiftRight'))&&fwdKey()&&!hb&&!v.isBike;
+    const nitroWant=(kd('ShiftLeft')||kd('ShiftRight'))&&fwdKey()&&!hb&&!v.isBike&&!v.isBoat;
     const nitro=nitroWant&&nitroFuel>0;
     nitroFuel=nitro?Math.max(0,nitroFuel-dt):Math.min(NITRO_MAX,nitroFuel+dt*0.5);
     if(fwdKey()) vlong+=(vlong<0?40:v.accel)*dt;
