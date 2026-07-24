@@ -4499,7 +4499,7 @@ function buildChunk(ci,cj){
       b.position.set(SHORE_X-3.4,0.35,cj*CELL+8+i*14); b.castShadow=true; grp.add(b);
     }
     if(((cj%3)+3)%3===0){
-      const PIER_L=44;                                       // deck reaching out over the water
+      const PIER_L=PIER_LEN;                                 // deck reaching out over the water
       const deck=new THREE.Mesh(new THREE.BoxGeometry(PIER_L,0.4,9),deckMat);
       deck.position.set(SHORE_X+PIER_L/2-2,SEA_Y+0.7,zc); deck.receiveShadow=true; deck.castShadow=true; grp.add(deck);
       for(let i=0;i<6;i++) for(const s of [-1,1]){           // pilings holding it up
