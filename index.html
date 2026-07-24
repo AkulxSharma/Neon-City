@@ -6907,6 +6907,9 @@ function tick(now){
   // stream the endless city + slide the ground under the player
   ensureChunks(pvx,pvz);
   ground.position.set(Math.round(pvx/CELL)*CELL,0,Math.round(pvz/CELL)*CELL);
+  updateBoatTraffic(dt,pvx,pvz);
+  seaRippleTex.offset.y=(time*0.006)%1;                    // slow swell drifting up the coast
+  seaRippleTex.offset.x=Math.sin(time*0.05)*0.004;
 
   // ----- police convoy: recruit nearby police NPC when player siren active -----
   const playerSirenOn=player.veh&&player.veh.g.userData.siren&&player.veh.g.userData.siren.kind==='police'&&lightMode!==2;
