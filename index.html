@@ -7242,6 +7242,8 @@ function tick(now){
     }
   }
 
+  updateSinking(dt,pvx,pvz);
+
   // ----- HUD -----
   if(msgT>0){ msgT-=dt; if(msgT<=0) msgEl.style.opacity=0; }
   drawMinimap(pvx,pvz,player.veh?player.veh.h:player.h);
