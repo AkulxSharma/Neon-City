@@ -7138,13 +7138,11 @@ function tick(now){
     //      coast (z-axis lanes run parallel to it, and their fixed x-lane is always
     //      inland). Brake on the approach, then U-turn at the kerb and head back into
     //      the city — so traffic turns away instead of plunging in and being recycled.
-    if(t.axis==='x'&&t.dirSign>0){
-      const distToShore=(SHORE_X-6)-t.pos;                  // stop line just short of the kerb
-      if(distToShore<14){                                   // close enough — U-turn and head back inland
-        t.dirSign=-1; v.speed*=0.4;
-      } else if(distToShore<30){
-        blocked=true;                                       // brake on the approach so the turn isn't abrupt
-      }
+    // U-turn on position alone (NOT by braking): a brake-to-zero stalls the car short
+    // of the flip line and it never turns. Let it cruise in, then flip ~28m before the
+    // kerb, halving speed so the reversal reads as a turn rather than a bounce.
+    if(t.axis==='x'&&t.dirSign>0&&((SHORE_X-6)-t.pos)<22){
+      t.dirSign=-1; v.speed*=0.55;
     }
     // yield to nearby sirens — pull to road edge and slow down
     let yielding=false;
