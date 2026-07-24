@@ -3981,15 +3981,20 @@ const SHORE_X=600, SEA_Y=0.2, SHORE_CI=Math.round(SHORE_X/CELL);
 function inSea(x){ return x>SHORE_X; }
 const seaRippleTex=waterRippleTex.clone();
 seaRippleTex.needsUpdate=true;
-seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.set(320,320);
-const seaMat=new THREE.MeshStandardMaterial({color:0x1d6ea8,roughness:.22,metalness:.55,emissive:0x0d2f4c,emissiveIntensity:.45,map:seaRippleTex});
-{
-  const SEA_W=32000, SEA_L=64000;
-  const sea=new THREE.Mesh(new THREE.PlaneGeometry(SEA_W,SEA_L),seaMat);
-  sea.rotation.x=-Math.PI/2;
-  sea.position.set(SHORE_X+SEA_W/2,SEA_Y,0);   // butts up against the shore, runs to the horizon
-  sea.receiveShadow=true; scene.add(sea);
-}
+seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.set(120,120);
+// same recipe as the lake's waterMat, just deeper and colder. High metalness with no
+// envMap blows out to white under the sun, so keep it matched to the material that
+// already reads correctly in this scene.
+const seaMat=new THREE.MeshStandardMaterial({color:0x1b5f96,roughness:.28,metalness:.25,emissive:0x0b2740,emissiveIntensity:.35,map:seaRippleTex});
+// 12km square rather than a 32km slab: fog closes out at 430 units, so anything past
+// that is invisible anyway, and the smaller plane keeps depth precision sane at the
+// shoreline. It slides along Z with the player exactly like the street ground does.
+const SEA_SPAN=12000;
+const seaMesh=new THREE.Mesh(new THREE.PlaneGeometry(SEA_SPAN,SEA_SPAN),seaMat);
+seaMesh.rotation.x=-Math.PI/2;
+seaMesh.position.set(SHORE_X+SEA_SPAN/2,SEA_Y,0);   // west edge butts up against the shore
+seaMesh.receiveShadow=false; seaMesh.castShadow=false;
+scene.add(seaMesh);
 const quayMat=new THREE.MeshStandardMaterial({color:0x6a6f78,roughness:.9,metalness:.05});
 const pilingMat=new THREE.MeshStandardMaterial({color:0x3a2e24,roughness:.95});
 const deckMat=new THREE.MeshStandardMaterial({color:0x8a6a44,roughness:.85});
