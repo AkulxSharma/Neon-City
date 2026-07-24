@@ -3982,10 +3982,10 @@ function inSea(x){ return x>SHORE_X; }
 const seaRippleTex=waterRippleTex.clone();
 seaRippleTex.needsUpdate=true;
 seaRippleTex.wrapS=seaRippleTex.wrapT=THREE.RepeatWrapping; seaRippleTex.repeat.set(120,120);
-// same recipe as the lake's waterMat, just deeper and colder. High metalness with no
-// envMap blows out to white under the sun, so keep it matched to the material that
-// already reads correctly in this scene.
-const seaMat=new THREE.MeshStandardMaterial({color:0x1b5f96,roughness:.28,metalness:.25,emissive:0x0b2740,emissiveIntensity:.35,map:seaRippleTex});
+// deliberately ROUGH and non-metallic. The lake gets away with a glassy finish because
+// it's 36m across; on a 12km plane a smooth spec lobe becomes one enormous highlight that
+// the bloom pass smears into a solid white sheet. Choppy open water is the honest look.
+const seaMat=new THREE.MeshStandardMaterial({color:0x1b5f96,roughness:.82,metalness:0,emissive:0x0a2138,emissiveIntensity:.14,map:seaRippleTex});
 // 12km square rather than a 32km slab: fog closes out at 430 units, so anything past
 // that is invisible anyway, and the smaller plane keeps depth precision sane at the
 // shoreline. It slides along Z with the player exactly like the street ground does.
