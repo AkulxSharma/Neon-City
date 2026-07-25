@@ -1,16 +1,19 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useEffect, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import type { BloomEffect } from "postprocessing";
 import { SkyCycle } from "@/components/SkyCycle";
+import { skyState } from "@/lib/skyState";
 import { City } from "@/components/City";
 import { Water } from "@/components/Water";
 import { Car } from "@/components/Car";
 import { Boat } from "@/components/Boat";
 import { Bike } from "@/components/Bike";
 import { Traffic } from "@/components/Traffic";
+import { Pedestrians } from "@/components/Pedestrians";
 import { Player } from "@/components/Player";
 import { Club } from "@/components/Club";
 import { ClubInterior } from "@/components/ClubInterior";
@@ -30,6 +33,16 @@ import { PoliceStation } from "@/components/PoliceStation";
 import { Marina } from "@/components/Marina";
 
 const CYCLABLE = new Set(["car", "bike", "boat"]);
+
+// original's exact per-frame rescale (updateDayNight ~line 7016): dim by day
+// so daylight isn't blown out, full glow at night for the neon signs
+function DynamicBloom() {
+  const ref = useRef<BloomEffect>(null);
+  useFrame(() => {
+    if (ref.current) ref.current.intensity = 0.18 + skyState.nightK * 0.72;
+  });
+  return <Bloom ref={ref} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur />;
+}
 
 export default function Game() {
   // restore active vehicle/camera/mute once at mount — vehicle *positions*
@@ -107,14 +120,18 @@ export default function Game() {
             <PoliceStation />
             <Marina />
             <Traffic />
+            <Pedestrians />
             <Player />
             <Club />
             <ClubInterior />
           </Physics>
-          {/* threshold-gated like the original's UnrealBloomPass(strength .9, threshold
-              .82) — only true emissive neon blooms, not the lit ground/facades */}
+          {/* threshold matches the original's UnrealBloomPass threshold (.82) — only
+              true emissive neon blooms, not the lit ground/facades. Strength is NOT
+              fixed in the original either: updateDayNight rescales
+              bloomPass.strength=0.18+nightK*0.72 every frame (dim by day, full glow
+              at night) — DynamicBloom below ports that same formula. */}
           <EffectComposer>
-            <Bloom intensity={0.9} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur />
+            <DynamicBloom />
           </EffectComposer>
         </Suspense>
       </Canvas>

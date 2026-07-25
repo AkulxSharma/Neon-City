@@ -136,13 +136,43 @@ export function PoliceCar() {
     >
       <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
       <group>
+        {/* bodyMat, ported from the original's blacked-out police-interceptor body
+            (index.html line 5639, makePoliceJeep) */}
         <mesh castShadow position={[0, -0.18, 0]}>
           <boxGeometry args={[1.9, 0.95, 4.8]} />
-          <meshStandardMaterial color="#eef1f6" metalness={0.3} roughness={0.4} />
+          <meshStandardMaterial color="#090a0e" metalness={0.45} roughness={0.5} />
         </mesh>
+        {/* glassMat, ported from the original's shared cab-glass material (index.html line
+            4829); envMap:envCube wiring skipped — this migration has no scene environment map yet */}
         <mesh castShadow position={[0, 0.56, -0.3]}>
           <boxGeometry args={[1.55, 0.55, 2.3]} />
-          <meshStandardMaterial color="#0c0c0e" metalness={0.2} roughness={0.15} />
+          <meshStandardMaterial color="#3a5068" metalness={0.55} roughness={0.05} transparent opacity={0.32} />
+        </mesh>
+        {/* side mirrors + A-pillar spotlight, ported from makePoliceJeep (index.html
+            lines 5723-5736): trimMat arms, chromeMat housings */}
+        {[-1, 1].map((s) => (
+          <group key={s}>
+            <mesh position={[s * 1.05, 0.5, 0.78]}>
+              <boxGeometry args={[0.18, 0.04, 0.04]} />
+              <meshStandardMaterial color="#101014" metalness={0.6} roughness={0.4} />
+            </mesh>
+            <mesh position={[s * 1.15, 0.52, 0.78]}>
+              <boxGeometry args={[0.05, 0.14, 0.12]} />
+              <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
+            </mesh>
+          </group>
+        ))}
+        <mesh rotation={[0, 0, Math.PI / 2]} position={[-0.93, 0.5, 0.82]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.13, 10]} />
+          <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[-0.98, 0.62, 0.85]}>
+          <cylinderGeometry args={[0.09, 0.07, 0.1, 14]} />
+          <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
+        </mesh>
+        <mesh position={[-0.98, 0.62, 0.9]}>
+          <circleGeometry args={[0.07, 16]} />
+          <meshBasicMaterial color="#e6ecff" />
         </mesh>
         {/* light bar — the flashing squares above are this build's "siren", read by Traffic.tsx */}
         <mesh position={[-0.35, 0.86, -0.3]}>
@@ -161,7 +191,8 @@ export function PoliceCar() {
         ].map((p, i) => (
           <mesh key={i} position={p as [number, number, number]} rotation={[0, 0, Math.PI / 2]} castShadow>
             <cylinderGeometry args={[0.37, 0.37, 0.28, 14]} />
-            <meshStandardMaterial color="#111318" roughness={0.6} />
+            {/* chromeMat, ported from the original's shared wheel-hub material (index.html line 4833) */}
+            <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
           </mesh>
         ))}
         {[0.62, -0.62].map((x) => (

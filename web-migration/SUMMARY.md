@@ -765,16 +765,122 @@ a concrete lead instead of a guess.
 builders and materials, `Chunk`'s park logic, simplified `Building`, new
 `Tree`).
 
+## Milestone 13 — real pedestrians + lighting/color fidelity fix (2026-07-25)
+
+**Goal:** two things the user actually asked for this session — "I don't see
+a character in the game" (pedestrians never got ported at all) and "improve
+brightness and colors" (night driving reads near-black). Both turned out to
+be real gaps against the original, not stylistic choices worth re-litigating.
+
+**Pedestrians are a genuine, previously-dropped gap, now closed.**
+Milestone 3 flagged "pedestrians" as not-yet-done and no milestone after it
+ever came back for them — not even named in any later "Next up" section.
+`components/Pedestrians.tsx` is a real port of the original's system
+(index.html ~line 6148-6182, 7591-7632): 44 civilians + 7 cops, each walking
+a 72m square loop around a city block (`pedPos()`, ported verbatim — four
+straight sides, `s` wraps mod 288), rehomed to a block near the player when
+they drift >220m away or would end up in the water (clamped to `ci<=0` so
+the loop always stays inside `SHORE_X`, reusing the existing `lib/marina.ts`
+constant instead of re-deriving a new one), and panicking (3.2× speed,
+double stride frequency) when the player drives past close (<8 units) and
+fast (>8 m/s) — all the original's exact numbers. Also ports the original's
+ragdoll-on-hit reaction (~line 7333-7357 hit test, ~7591-7610 ragdoll
+update): an oriented-box test against the active land vehicle, extended
+forward by the frame's travel distance so a fast car can't tunnel through:
+hit peds get flung, tumble mid-air, bounce off the tarmac, settle, then
+dust off and rejoin traffic after 4.5s. One named simplification: the
+original multiplies the shove direction by `Math.sign(v.speed)` so reversing
+into a ped flings them backward; `hudStore.speedKmh` is unsigned (the HUD
+only ever displays magnitude), so that distinction is dropped — reversing
+into someone still ragdolls them correctly, just always shoved forward-
+relative-to-heading. Also not ported: the original's `v.speed*=0.9` slowdown
+on impact — the car's own speed isn't exposed through any shared singleton
+(`worldState` only carries position/heading), and wiring it back from
+`Pedestrians.tsx` into three separate vehicle components' internal speed
+refs was judged not worth it for a secondary effect.
+
+Walk cycle reuses the same box-figure rig built for the crowd-test scene
+below — factored out into `components/PersonFigure.tsx` so both consumers
+share one geometry definition instead of two copies drifting apart.
+
+**Lighting had drifted from the original, not just "looked different on
+purpose."** `components/SkyCycle.tsx` was missing several real pieces of
+the original's actual light setup (index.html ~line 3548-3582,
+6993-7040): `renderer.toneMappingExposure` was never set at all (R3F
+default 1.0) where the original always runs 1.08-1.26 — a straight
+multiplier on the whole final image; a flat `AmbientLight` stood in for the
+original's `HemisphereLight` (sky-color-from-above `0xc8e0ff` / ground-
+color-from-below `0x3a3020`), which reads noticeably flatter than true
+hemisphere lighting; the original's fixed-intensity `fillLight`
+(`0x8ab4d8` @ 0.25, from `(-60,40,-30)`) was missing entirely; and the sun
+never changed color (original shifts warm-white by day, `0x7d8fc8`
+moonlight-blue by night — now ported via a lerp between those same two
+colors). `components/Game.tsx`'s bloom was also a static `intensity={0.9}`
+where the original rescales it every frame
+(`bloomPass.strength=0.18+nightK*0.72` — dim by day so daylight isn't
+blown out, full glow at night) — `DynamicBloom` now ports that exact
+formula via a ref + `useFrame`, since `@react-three/postprocessing`'s
+`<Bloom>` forwards its ref straight to the underlying `BloomEffect`
+instance. Kept: the existing sine-phase `dayK`/`nightK` driver instead of
+rebuilding the original's true sun-elevation-angle math — same light
+values, simpler driver, explicitly deferred rather than scope-creeped into
+this pass (the user's own framing: "get the colors from index.html, we can
+improve that later"). Road/sidewalk texture colors were checked against
+the original and are already pixel-correct (`#23252a` asphalt, `#82868d`
+sidewalk, verbatim) — what's still cut is texture *detail* (aggregate
+speckle, wheel-path polish, oil stains, cracks, manholes, slab joints,
+bump-mapped grain), already named honestly in Milestone 12, unchanged here.
+
+**Side artifact, not part of the migration:** a separate `/crowd-test`
+route (`components/CrowdScene.tsx`/`Buildings.tsx`/`Crowd.tsx`,
+`lib/buildings.ts`) exists from an earlier unrelated ask this session (500
+procedural buildings + 50 walking humans, prompted by an empty/failed
+`buffalodataa.geojson` Overpass export). Not wired into the real game.
+Worth knowing about: `scripts/optimize-character.mjs` (a checked-in
+`@gltf-transform` decimation script, `npm run optimize:crowd`) exists from
+an abandoned attempt to use a Mixamo GLB there — the source
+`characters/walking.glb` turned out to be a mislabeled 161,634-vertex/
+4096×4096-texture asset that crashed WebGL at 50 instances even after
+decimation produced an ugly exaggerated-kick pose, so `/crowd-test`'s
+walker was switched to the same procedural box-figure approach as the real
+pedestrians. `characters/` (the ~440MB FBX/GLB folder) is still untouched,
+still not staged/committed.
+
+**Verification status — honest gap, not silently claimed done.**
+`tsc --noEmit`/`eslint` clean on every file above. The lighting fix was
+visually confirmed live (screenshot comparison at the VENU landmark: road/
+sidewalk contrast, sign legibility, and pedestrian visibility all
+measurably improved). The ragdoll hit-test was **not** confirmed live —
+mid-verification the dev server's HMR left the HUD in a state with no
+vehicle panel showing (car speed/name missing after a reload), and the
+session was interrupted before root-causing whether that's a real bug or
+just an HMR artifact from editing `Game.tsx` while the page was live. Next
+session: hard-restart the dev server cleanly (don't rely on HMR surviving
+a `Game.tsx`/`SkyCycle.tsx` edit), then actually drive into a pedestrian
+and confirm the ragdoll fires.
+
+**Files changed:** `components/Pedestrians.tsx`, `components/
+PersonFigure.tsx` (new); `components/Crowd.tsx` (refactored onto
+`PersonFigure`); `components/Game.tsx` (`Pedestrians` mount, `DynamicBloom`);
+`components/SkyCycle.tsx` (hemisphere/fill lights, sun color, tone-mapping
+exposure).
+
 ## Next up
 
-Both of Milestone 10's named blockers are now closed (club fidelity is
-still simplified — see Milestone 9 — but police/convoy/dock is done).
-Remaining, roughly by size: the club interior's own deliberate
-simplifications (Milestone 9 — rigged crowd, bar/couches/poles, exterior
-light beams, all cut for scope, not fidelity-matched yet); the felony-stop
-convoy maneuver named and skipped in Milestone 11; instanced repeated
-props / a perf pass (roadmap Phase 6, `SUMMARY.md`'s own table); and the
-still-unconfirmed `dpr={1}`/`EffectComposer` render artifact, which now
-has a real lead (SwiftShader software rendering) instead of a guess — worth
-a real-hardware check before spending more time theorizing about it in a
-sandbox that can't rule it in or out.
+Both of Milestone 10's named blockers are closed (club fidelity is still
+simplified — see Milestone 9 — but police/convoy/dock is done), and
+pedestrians (Milestone 13) closed the gap Milestone 3 flagged and every
+milestone since forgot about. Remaining, roughly by size: **verify
+Milestone 13's ragdoll hit-test live** (see its own honest-gap note above —
+this is the most likely thing to be subtly broken, check it first); the
+club interior's own deliberate simplifications (Milestone 9 — rigged
+crowd, bar/couches/poles, exterior light beams, cut for scope, not
+fidelity-matched yet); the felony-stop convoy maneuver named and skipped
+in Milestone 11; the car's own `speed*=0.9` slowdown on hitting a
+pedestrian (Milestone 13, needs a shared speed singleton to wire up);
+instanced repeated props / a perf pass (roadmap Phase 6, `SUMMARY.md`'s own
+table); road texture detail (aggregate/cracks/oil-stains/manholes,
+Milestone 12/13); and the still-unconfirmed `dpr={1}`/`EffectComposer`
+render artifact, which has a real lead (SwiftShader software rendering)
+instead of a guess — worth a real-hardware check before spending more time
+theorizing about it in a sandbox that can't rule it in or out.

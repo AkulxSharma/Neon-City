@@ -13,6 +13,7 @@ import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { WATER_LEVEL } from "@/components/Water";
 import { pierPush } from "@/lib/marina";
+import { BoatMirrors } from "@/components/BoatMirrors";
 
 // A second hull, moored at the marina — near-copy of Boat.tsx (same
 // direct-integration, no-character-controller design; see that file's class
@@ -103,12 +104,12 @@ export function PatrolBoat() {
         <boxGeometry args={[hullSize.x * 0.7, 0.8, 1.6]} />
         <meshStandardMaterial color="#101216" roughness={0.5} />
       </mesh>
-      {[-1, 1].map((sx) => (
-        <mesh key={sx} position={[sx * 0.72, hullSize.y / 2 + 0.95, 0.7]} rotation={[0, sx * 0.9, 0]}>
-          <circleGeometry args={[0.09, 10]} />
-          <meshStandardMaterial color="#1f6fe0" metalness={0.9} roughness={0.12} side={THREE.DoubleSide} />
-        </mesh>
-      ))}
+      {/* windscreen — the boat-specific glassMat (index.html line 5492) */}
+      <mesh position={[0, hullSize.y / 2 + 0.75, 0.25]} rotation={[-0.22, 0, 0]}>
+        <boxGeometry args={[hullSize.x * 0.75, 0.5, 0.08]} />
+        <meshStandardMaterial color="#0a1a26" metalness={0.9} roughness={0.08} transparent opacity={0.55} />
+      </mesh>
+      <BoatMirrors y={hullSize.y / 2 + 0.95} z={0.7} />
       <mesh position={[0, hullSize.y / 2 + 0.3, hullSize.z / 2 - 0.3]}>
         <sphereGeometry args={[0.11, 8, 8]} />
         <meshBasicMaterial color="#ff2020" />

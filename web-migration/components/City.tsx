@@ -30,8 +30,8 @@ import { CLUB_IN } from "@/lib/club";
 // (downtown/industrial/residential glass-chance bias), no building tiers/
 // AC units/antennas, no bark/leaf textures on trees (flat-shaded cone/sphere-
 // equivalent — cylinder trunk + sphere crown — instead), no fountains/
-// benches/sports fields inside park chunks, no manholes/oil-stains/cracks in
-// the road texture, no tree collision (visual dressing only, not obstacles).
+// benches/sports fields inside park chunks, no tree collision (visual
+// dressing only, not obstacles).
 const CELL = 100;
 const ROAD_W = 20;
 const VIEW = 2; // chunk radius kept alive around the player
@@ -170,20 +170,81 @@ function buildTileTexture(interiorFill: string) {
       g.fillStyle = `rgba(0,0,0,${Math.random() * 0.05})`;
       g.fillRect(Math.random() * size, Math.random() * size, 3, 3);
     }
-    const roadW = px(10);
-    g.fillStyle = "#23252a";
-    g.fillRect(0, 0, roadW, size);
-    g.fillRect(size - roadW, 0, roadW, size);
-    g.fillRect(0, 0, size, roadW);
-    g.fillRect(0, size - roadW, size, roadW);
-    for (let i = 0; i < 400; i++) {
-      const v = 26 + Math.random() * 60;
-      g.fillStyle = `rgba(${v},${v},${v + 3},0.4)`;
-      const onVert = Math.random() < 0.5;
-      const x = onVert ? Math.random() * roadW + (Math.random() < 0.5 ? 0 : size - roadW) : Math.random() * size;
-      const y = onVert ? Math.random() * size : Math.random() * roadW + (Math.random() < 0.5 ? 0 : size - roadW);
-      g.fillRect(x, y, 1.5, 1.5);
+    // sidewalk slab joints (expansion lines across the concrete interior —
+    // ported from the original's tileTex, index.html ~3706-3709)
+    g.strokeStyle = "rgba(18,20,24,.3)";
+    g.lineWidth = 0.7;
+    for (let u = 15; u <= 85; u += 5) {
+      g.beginPath();
+      g.moveTo(px(u), 0);
+      g.lineTo(px(u), size);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(0, px(u));
+      g.lineTo(size, px(u));
+      g.stroke();
     }
+    const roadW = px(10);
+    // asphalt road strips — patched blotches, aggregate speckle, wheel-path
+    // polish, oil drip stains, hairline cracks (ported from the original's
+    // road() helper, index.html ~3712-3731)
+    const road = (x: number, y: number, w: number, h: number, horiz: boolean) => {
+      g.fillStyle = "#23252a";
+      g.fillRect(x, y, w, h);
+      for (let i = 0; i < Math.max(6, ((w * h) / 1600) | 0); i++) {
+        const bx = x + Math.random() * w,
+          by = y + Math.random() * h,
+          r = 3.75 + Math.random() * 11.25,
+          dk = Math.random() < 0.6;
+        const rad = g.createRadialGradient(bx, by, 1, bx, by, r);
+        rad.addColorStop(0, `rgba(${dk ? 12 : 64},${dk ? 13 : 66},${dk ? 16 : 70},.22)`);
+        rad.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = rad;
+        g.fillRect(x, y, w, h);
+      }
+      const n = ((w * h) / 22) | 0;
+      for (let i = 0; i < n; i++) {
+        const v = (26 + Math.random() * 74) | 0;
+        g.fillStyle = `rgba(${v},${v},${v + 3},${0.3 + Math.random() * 0.45})`;
+        g.fillRect(x + Math.random() * w, y + Math.random() * h, 1.5, 1.5);
+      }
+      g.fillStyle = "rgba(6,7,10,.26)";
+      if (horiz) {
+        g.fillRect(x, y + h * 0.26, w, h * 0.16);
+        g.fillRect(x, y + h * 0.56, w, h * 0.16);
+      } else {
+        g.fillRect(x + w * 0.26, y, w * 0.16, h);
+        g.fillRect(x + w * 0.56, y, w * 0.16, h);
+      }
+      for (let i = 0; i < 4; i++) {
+        const ox = x + Math.random() * w,
+          oy = y + Math.random() * h,
+          r = 1.9 + Math.random() * 4.5;
+        const rad = g.createRadialGradient(ox, oy, 1, ox, oy, r);
+        rad.addColorStop(0, "rgba(0,0,0,.32)");
+        rad.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = rad;
+        g.fillRect(ox - r, oy - r, r * 2, r * 2);
+      }
+      g.strokeStyle = "rgba(8,8,10,.5)";
+      g.lineWidth = 0.5;
+      for (let i = 0; i < 3; i++) {
+        g.beginPath();
+        let cx = x + Math.random() * w,
+          cy = y + Math.random() * h;
+        g.moveTo(cx, cy);
+        for (let s = 0; s < 5; s++) {
+          cx += (Math.random() - 0.5) * 15;
+          cy += (Math.random() - 0.5) * 15;
+          g.lineTo(cx, cy);
+        }
+        g.stroke();
+      }
+    };
+    road(0, 0, roadW, size, false);
+    road(size - roadW, 0, roadW, size, false);
+    road(0, 0, size, roadW, true);
+    road(0, size - roadW, size, roadW, true);
     // curb — a texture stripe, not raised geometry (the original's curb()
     // helper is the same: baked into the tile, no separate 3D mesh)
     g.fillStyle = "rgba(200,204,210,.5)";
@@ -233,6 +294,36 @@ function buildTileTexture(interiorFill: string) {
         }
       }
     }
+    // manhole covers (ported from the original's manhole() helper,
+    // index.html ~3777-3781) — 2 per tile, not the original's 4: this tile
+    // is one chunk, not a 16x16-tiled giant plane, so 4 would crowd it
+    const manhole = (u: number, v: number, r: number) => {
+      g.fillStyle = "#1a1c21";
+      g.beginPath();
+      g.arc(px(u), px(v), px(r), 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = "#43464d";
+      g.lineWidth = 0.9;
+      g.beginPath();
+      g.arc(px(u), px(v), px(r), 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = "rgba(92,96,102,.5)";
+      g.lineWidth = 0.45;
+      g.beginPath();
+      g.arc(px(u), px(v), px(r * 0.68), 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = "rgba(70,74,80,.4)";
+      g.lineWidth = 0.5;
+      for (let a = 0; a < 8; a++) {
+        const an = (a * Math.PI) / 4;
+        g.beginPath();
+        g.moveTo(px(u) + Math.cos(an) * px(r * 0.3), px(v) + Math.sin(an) * px(r * 0.3));
+        g.lineTo(px(u) + Math.cos(an) * px(r * 0.62), px(v) + Math.sin(an) * px(r * 0.62));
+        g.stroke();
+      }
+    };
+    manhole(4.5, 38, 0.72);
+    manhole(63, 95.5, 0.72);
   });
 }
 
@@ -243,7 +334,7 @@ const PARK_TILE_TEX = buildTileTexture("#3f6b2f"); // park grass
 
 // grey/tan stone-facade tints + the original's literal glassTowerMats blue
 // hex values, each paired with the ONE shared grid/glow texture above.
-const FACADE_TINTS = ["#b8b2a4", "#8c9098", "#9a5f48", "#7c8ea0", "#c2b79c", "#6e7a86"];
+const FACADE_TINTS = ["#b8b2a4", "#8c9098", "#9a5f48", "#7c8ea0", "#c2b79c", "#5a5e68", "#a89a86", "#6e7a86"];
 const GLASS_TINTS = ["#8fb0c8", "#9aa8c4", "#7fa8be", "#a2bcd0"];
 const ROOF_MAT = new THREE.MeshStandardMaterial({ color: "#15161c", roughness: 0.9 });
 const FACADE_MATS = FACADE_TINTS.map(

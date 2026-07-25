@@ -7,15 +7,26 @@ import { useHudStore } from "@/lib/hudStore";
 import { skyState } from "@/lib/skyState";
 import { loadSave } from "@/lib/saveGame";
 
-// Exact colors from the original index.html (`cDay`/`cNight`/`cDusk`, tick()'s
-// updateDayNight).
+// Exact colors/values from the original index.html's updateDayNight() (~line
+// 6993-7040) and its renderer/light setup (~line 3548-3582) — this file had
+// drifted from those: a flat AmbientLight instead of the original's sky/
+// ground HemisphereLight, no fillLight at all, a sun that never changes
+// color, and toneMappingExposure left at the R3F default (1.0) instead of
+// the original's always-boosted 1.08-1.26. That gap, not a deliberately
+// different look, is why night driving reads near-black — this restores the
+// original's actual numbers. (The original derives its dayK/nightK from a
+// true sun-elevation angle; this still drives off the existing sine-phase
+// dayK/nightK below rather than rebuilding that — same numbers, simpler
+// driver, see SUMMARY.md for what's still worth tightening later.)
 const DAY = new THREE.Color(0x7ec4f2);
 const NIGHT = new THREE.Color(0x05070f);
+const SUN_NIGHT = new THREE.Color(0x7d8fc8); // original's moonlight tint
+const SUN_DAY = new THREE.Color().setHSL(0.1, 0.5, 0.75); // original's warm daylight tint
 
 export function SkyCycle() {
-  const { scene } = useThree();
+  const { scene, gl } = useThree();
   const sunRef = useRef<THREE.DirectionalLight>(null);
-  const ambientRef = useRef<THREE.AmbientLight>(null);
+  const hemiRef = useRef<THREE.HemisphereLight>(null);
   // start at night by default — the original's signature look, and the one
   // every screenshot in this migration has been judged against — unless a
   // save says otherwise
@@ -30,7 +41,8 @@ export function SkyCycle() {
     t.current += dt * 0.015; // one full cycle every ~7 minutes
     skyState.phase = t.current;
     const dayK = (Math.sin(t.current) + 1) / 2;
-    skyState.nightK = 1 - dayK;
+    const nightK = 1 - dayK;
+    skyState.nightK = nightK;
     // clock (matches the original's `(6 + dayT*24) % 24`): map the sine phase
     // directly onto a 24h face rather than running a second, separate timer
     const frac = (((t.current / (2 * Math.PI)) % 1) + 1) % 1;
@@ -47,13 +59,24 @@ export function SkyCycle() {
     }
     if (!scene.fog) scene.fog = new THREE.Fog(col, 60, 260);
     (scene.fog as THREE.Fog).color.copy(col);
-    if (sunRef.current) sunRef.current.intensity = 0.15 + dayK * 1.1;
-    if (ambientRef.current) ambientRef.current.intensity = 0.18 + dayK * 0.5;
+    if (sunRef.current) {
+      sunRef.current.intensity = 0.15 + dayK * 1.1;
+      sunRef.current.color.copy(SUN_NIGHT).lerp(SUN_DAY, dayK);
+    }
+    if (hemiRef.current) hemiRef.current.intensity = 0.18 + dayK * 0.5;
+    // original's renderer.toneMappingExposure=1.08+nightK*0.18 — always above
+    // 1.0, brightest at night to compensate for the dark night palette
+    // eslint-disable-next-line react-hooks/immutability -- see note above useFrame
+    gl.toneMappingExposure = 1.08 + nightK * 0.18;
   });
 
   return (
     <>
-      <ambientLight ref={ambientRef} intensity={0.18} />
+      {/* original's hemi: sky-color-from-above / ground-color-from-below,
+          reads much richer than a flat ambient */}
+      <hemisphereLight ref={hemiRef} color={0xc8e0ff} groundColor={0x3a3020} intensity={0.18} />
+      {/* original's fixed-intensity fillLight, never modulated by day/night */}
+      <directionalLight color={0x8ab4d8} intensity={0.25} position={[-60, 40, -30]} />
       <directionalLight ref={sunRef} position={[60, 80, 30]} castShadow intensity={0.15} />
     </>
   );

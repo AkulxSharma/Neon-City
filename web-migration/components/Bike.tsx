@@ -148,10 +148,11 @@ function BikeMesh() {
         <boxGeometry args={[0.3, 0.22, 0.5]} />
         <meshStandardMaterial color="#c8302f" metalness={0.4} roughness={0.35} />
       </mesh>
+      {/* chromeMat, ported from the original's shared wheel-hub material (index.html line 4833) */}
       {[0.7, -0.7].map((z) => (
         <mesh key={z} position={[0, -0.42, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[0.34, 0.34, 0.14, 14]} />
-          <meshStandardMaterial color="#111318" roughness={0.6} />
+          <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
         </mesh>
       ))}
       <mesh position={[0, 0.36, 0.85]}>

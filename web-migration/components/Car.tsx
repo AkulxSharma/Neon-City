@@ -163,7 +163,8 @@ export function CarMesh({ color }: { color?: string } = {}) {
   // for a one-time impure value (Math.random) — a plain useMemo re-running is
   // not guaranteed not to happen more than once
   const [bodyColor] = useState(() => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)]);
-  const wheelMat = <meshStandardMaterial color="#111318" roughness={0.6} />;
+  // chromeMat, ported from the original's shared wheel-hub material (index.html line 4833)
+  const wheelMat = <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />;
 
   return (
     <group>
@@ -171,9 +172,11 @@ export function CarMesh({ color }: { color?: string } = {}) {
         <boxGeometry args={[1.85, 0.9, 4.6]} />
         <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.4} />
       </mesh>
+      {/* glassMat, ported from the original's shared cab-glass material (index.html line
+          4829); envMap:envCube wiring skipped — this migration has no scene environment map yet */}
       <mesh castShadow position={[0, 0.53, -0.3]}>
         <boxGeometry args={[1.5, 0.55, 2.3]} />
-        <meshStandardMaterial color="#14161a" metalness={0.2} roughness={0.15} />
+        <meshStandardMaterial color="#3a5068" metalness={0.55} roughness={0.05} transparent opacity={0.32} />
       </mesh>
       {[
         [0.85, -0.62, 1.55],
