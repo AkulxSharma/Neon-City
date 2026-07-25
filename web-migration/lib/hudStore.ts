@@ -1,6 +1,8 @@
 import { create } from "zustand";
 
-export type VehicleKind = "car" | "boat";
+export type VehicleKind = "car" | "boat" | "bike";
+
+const CYCLE: VehicleKind[] = ["car", "bike", "boat"];
 
 interface HudState {
   speedKmh: number;
@@ -19,5 +21,6 @@ export const useHudStore = create<HudState>((set) => ({
   grounded: true,
   active: "car",
   setHud: (speedKmh, grounded) => set({ speedKmh, grounded }),
-  toggleActive: () => set((s) => ({ active: s.active === "car" ? "boat" : "car" })),
+  toggleActive: () =>
+    set((s) => ({ active: CYCLE[(CYCLE.indexOf(s.active) + 1) % CYCLE.length] })),
 }));

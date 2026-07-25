@@ -112,10 +112,10 @@ export function Car() {
 // luminance threshold — see Game.tsx).
 const SEDAN_COLORS = ["#8b93a1", "#3a3f4a", "#7a2020", "#1f4a7a", "#cfd3da", "#2a5a3a", "#5a4a7a"];
 
-function CarMesh() {
+export function CarMesh({ color }: { color?: string } = {}) {
   const bodyColor = useMemo(
-    () => SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)],
-    []
+    () => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)],
+    [color]
   );
   const wheelMat = <meshStandardMaterial color="#111318" roughness={0.6} />;
 

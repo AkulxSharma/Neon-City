@@ -47,6 +47,20 @@ export const BOAT_HANDLING: CarHandling = {
   dragQ: 0.0009,
 };
 
+// Bikes in the original never get a custom handling object — they fall through
+// to the drive loop's isBike default (grip 9 vs a car's 6.5, everything else
+// identical to DEFAULT_HANDLING), just with a punchier max/accel.
+export const BIKE_HANDLING: CarHandling = {
+  max: 60,
+  accel: 38,
+  grip: 9,
+  turnGain: 0.78,
+  steerRamp: 2.6,
+  steerMin: 0.26,
+  drag: 0.4,
+  dragQ: 0.0016,
+};
+
 export interface CarInput {
   forward: boolean;
   back: boolean;

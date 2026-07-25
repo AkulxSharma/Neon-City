@@ -22,9 +22,10 @@ npm install
 npm run dev   # http://localhost:3000
 ```
 
-WASD/arrows to drive, Space to handbrake, **B** to switch control between the
-car and the boat. Flat test arena with a few boxes to crash into, plus a water
-area the boat floats on — that's it so far (see Milestones).
+WASD/arrows to drive, Space to handbrake, **B** to cycle control between car,
+bike, and boat. A few self-driving traffic cars patrol the arena on their own.
+Flat test arena with a few boxes to crash into, plus a water area the boat
+floats on — that's it so far (see Milestones).
 
 ## Migration phases
 
@@ -33,7 +34,7 @@ area the boat floats on — that's it so far (see Milestones).
 | 0 | Next.js scaffold, full-viewport Canvas, day/night sky cycle, ground | ✅ done |
 | 1 | Minimal driving arena (ground + boundary walls + a few static buildings as Rapier fixed colliders) — full chunk-streamed city comes later | ✅ done (minimal slice) |
 | 2 | **Validation vehicle**: one car, arcade physics ported from the original game, collision via Rapier's `KinematicCharacterController` | ✅ done — feel holds up, see below |
-| 3 | Remaining vehicle types (bikes, boats w/ buoyancy), traffic AI | ◐ boat done, bike + traffic AI next |
+| 3 | Remaining vehicle types (bikes, boats w/ buoyancy), traffic AI | ✅ done (basic traffic; original's road-grid/lights/yielding still to come) |
 | 4 | HUD → real React components (speedo done as a proof of concept via zustand) | ◐ speedo only |
 | 5 | Audio, save/load, club interior, police convoy, boat-swap, police station | ⏳ not started |
 | 6 | Instance repeated props, perf pass, deploy | ⏳ not started |
@@ -180,9 +181,50 @@ values the *UI* renders, and re-renders on).
 `components/Boat.tsx` (mirrors, nav light), `components/World.tsx`
 (palette + night-emissive buildings).
 
+## Milestone 4 — Phase 3 complete: bike + traffic AI (2026-07-24)
+
+**Goal:** finish Phase 3 — the last vehicle type, plus proof that vehicles can
+drive themselves (needed for any city to feel alive).
+
+**Bike** (`Bike.tsx`) is structurally a near-copy of `Car.tsx` — same
+`KinematicCharacterController` setup, same gravity/ground-snap integration —
+because in the original, a bike goes through the *identical* drive-loop
+physics as a car; the only difference is it defaults to grip 9 instead of 6.5
+(`BIKE_HANDLING` in `carPhysics.ts`) and leans visually into turns
+(`rotation.z = -steer * speed-scaled * 0.45`, the original's exact formula,
+smoothed with a small lerp so it doesn't snap). Noted directly in the file:
+if a fourth land vehicle shows up, the copy-pasted controller/gravity/camera
+boilerplate between `Car.tsx` and `Bike.tsx` should get pulled into a shared
+hook rather than copied a third time.
+
+**Vehicle switching is now 3-way** — `hudStore.toggleActive` cycles
+car → bike → boat → car via a small `CYCLE` array instead of a binary flip.
+
+**Traffic AI** (`Traffic.tsx`) is intentionally *not* routed through Rapier's
+character controller — and that's not a shortcut, it matches the original's
+own architecture: traffic cars there were always driven by a simpler, separate
+position loop from the player's physics block (the same split Milestone 1/2
+already ported for boats). Five cars patrol fixed x- or z-axis lanes at
+different cruise speeds, reversing direction at the arena bounds, reusing the
+same `CarMesh` visual as the player's car (now accepts an optional `color`
+prop instead of always randomizing).
+
+**Explicitly not done, and next in line precisely because of that:** traffic
+cars don't yet collide with the player, obey a road grid, stop at lights, or
+yield — there's no road grid for any of that to attach to yet. That's the
+same "still a placeholder" gap called out in Milestone 3: real city geometry
+in `World.tsx` is what unlocks all of it at once, which is why it's next.
+
+**Files added/changed:** `lib/carPhysics.ts` (`BIKE_HANDLING`),
+`lib/hudStore.ts` (3-way cycle), `components/Bike.tsx`, `components/Traffic.tsx`
+(new), `components/Car.tsx` (`CarMesh` exported + `color` prop),
+`components/Game.tsx`/`HUD.tsx` (mount + copy).
+
 ## Next up
 
-Two tracks from here, in order: (1) more of Phase 3 — a bike, then basic
-traffic AI; (2) start on the real city generation in `World.tsx`, since that's
-the single biggest remaining gap between this and "looks exactly like the
-original." Will report back at the next milestone.
+Phase 3 is done. Next: real city generation in `World.tsx` — chunk streaming,
+actual roads, and real buildings — since every remaining gap (traffic lights,
+yielding, landmarks, the original's true look) depends on that existing
+first. This is the biggest single piece of work left; will scope it into
+sub-milestones rather than one giant push, and report back after the first
+one.

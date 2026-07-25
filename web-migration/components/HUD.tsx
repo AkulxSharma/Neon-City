@@ -27,8 +27,8 @@ export function HUD() {
       </div>
       <div style={{ fontSize: 28, fontWeight: 700 }}>{speedKmh} km/h</div>
       <div style={{ fontSize: 11, opacity: 0.7 }}>
-        {active === "car" ? (grounded ? "grounded" : "airborne") : "afloat"} — WASD/arrows to
-        drive, Space to handbrake, B to switch car/boat
+        {active === "boat" ? "afloat" : grounded ? "grounded" : "airborne"} — WASD/arrows to
+        drive, Space to handbrake, B to cycle car/bike/boat
       </div>
     </div>
   );

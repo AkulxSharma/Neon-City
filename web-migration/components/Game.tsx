@@ -9,6 +9,8 @@ import { World } from "@/components/World";
 import { Water } from "@/components/Water";
 import { Car } from "@/components/Car";
 import { Boat } from "@/components/Boat";
+import { Bike } from "@/components/Bike";
+import { Traffic } from "@/components/Traffic";
 import { HUD } from "@/components/HUD";
 import { useHudStore } from "@/lib/hudStore";
 
@@ -31,6 +33,8 @@ export default function Game() {
             <Water />
             <Car />
             <Boat />
+            <Bike />
+            <Traffic />
           </Physics>
           {/* threshold-gated like the original's UnrealBloomPass(strength .9, threshold
               .82) — only true emissive neon blooms, not the lit ground/facades */}
