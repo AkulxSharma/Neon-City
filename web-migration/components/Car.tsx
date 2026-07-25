@@ -1,16 +1,19 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { RigidBody, CuboidCollider, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useKeyboard } from "@/lib/useKeyboard";
-import { stepCarPhysics, DEFAULT_HANDLING, type CarState } from "@/lib/carPhysics";
+import { stepCarPhysics, DEFAULT_HANDLING, type CarState, type CarHandling } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { applyCameraRig } from "@/lib/cameraRig";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12; // m/s^2 fed into the character controller so it stays snapped to the ground
+const NITRO_MAX = 10; // seconds of fuel — same numbers as the original's NITRO_MAX/NITRO_BOOST
+const NITRO_BOOST = 41.7; // +150 km/h over the car's normal top speed while boosting
 
 export function Car() {
   const { world } = useRapier();
@@ -23,6 +26,7 @@ export function Car() {
   // original game's per-vehicle object, kept in a ref so updating it never re-renders
   const car = useRef<CarState>({ h: 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
+  const nitroFuel = useRef(NITRO_MAX);
   const camPos = useRef(new THREE.Vector3(0, 4, -10));
   const camLook = useRef(new THREE.Vector3());
   const controllerRef = useRef<KinematicCharacterController | null>(null);
@@ -44,7 +48,7 @@ export function Car() {
   // spec (len 4.6, wid 1.85); local y=0 is the car's vertical mid-point
   const carBox = useMemo(() => new THREE.Vector3(1.85, 1.3, 4.6), []);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const body = bodyRef.current;
     const controller = controllerRef.current;
     const collider = colliderRef.current;
@@ -55,6 +59,18 @@ export function Car() {
     const k = keys.current;
     const steer = isActive ? (k.left ? 1 : 0) - (k.right ? 1 : 0) : 0;
 
+    // nitro: SHIFT+forward burns fuel for extra thrust and a raised top speed —
+    // same constants as the original (10s tank, +150km/h, drains 1:1, refills at half rate)
+    const wantNitro = isActive && k.forward && k.boost;
+    const nitroOn = wantNitro && nitroFuel.current > 0;
+    nitroFuel.current = nitroOn
+      ? Math.max(0, nitroFuel.current - d)
+      : Math.min(NITRO_MAX, nitroFuel.current + d * 0.5);
+    const handling: CarHandling = nitroOn
+      ? { ...DEFAULT_HANDLING, accel: DEFAULT_HANDLING.accel * 2.7, max: DEFAULT_HANDLING.max + NITRO_BOOST }
+      : DEFAULT_HANDLING;
+    if (isActive) useHudStore.getState().setNitro(nitroFuel.current / NITRO_MAX, nitroOn);
+
     const { dx, dz } = stepCarPhysics(
       car.current,
       {
@@ -63,7 +79,7 @@ export function Car() {
         steer,
         handbrake: isActive && k.handbrake,
       },
-      DEFAULT_HANDLING,
+      handling,
       d
     );
 
@@ -85,19 +101,21 @@ export function Car() {
     if (!isActive) return;
     worldState.px = nextPos.x;
     worldState.pz = nextPos.z;
+    worldState.heading = car.current.h;
 
-    // chase camera — same lerp-follow shape as the original game's camPos/camLook
-    const dir = new THREE.Vector3(Math.sin(car.current.h), 0, Math.cos(car.current.h));
-    const targetCamPos = new THREE.Vector3(
-      nextPos.x - dir.x * 8,
-      nextPos.y + 3.5,
-      nextPos.z - dir.z * 8
-    );
-    const targetLook = new THREE.Vector3(nextPos.x + dir.x * 4, nextPos.y + 1, nextPos.z + dir.z * 4);
-    camPos.current.lerp(targetCamPos, Math.min(1, d * 4));
-    camLook.current.lerp(targetLook, Math.min(1, d * 6));
-    camera.position.copy(camPos.current);
-    camera.lookAt(camLook.current);
+    applyCameraRig({
+      camera,
+      camPos: camPos.current,
+      camLook: camLook.current,
+      tx: nextPos.x,
+      ty: nextPos.y,
+      tz: nextPos.z,
+      th: car.current.h,
+      isBike: false,
+      camMode: useHudStore.getState().camMode,
+      time: state.clock.elapsedTime,
+      dt: d,
+    });
 
     useHudStore.getState().setHud(Math.round(Math.abs(car.current.speed) * 3.6), grounded);
   });
@@ -116,10 +134,11 @@ export function Car() {
 const SEDAN_COLORS = ["#8b93a1", "#3a3f4a", "#7a2020", "#1f4a7a", "#cfd3da", "#2a5a3a", "#5a4a7a"];
 
 export function CarMesh({ color }: { color?: string } = {}) {
-  const bodyColor = useMemo(
-    () => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)],
-    [color]
-  );
+  // random-once-at-mount, not a memo: color never changes after mount for any
+  // given instance, and useState's lazy initializer is the sanctioned place
+  // for a one-time impure value (Math.random) — a plain useMemo re-running is
+  // not guaranteed not to happen more than once
+  const [bodyColor] = useState(() => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)]);
   const wheelMat = <meshStandardMaterial color="#111318" roughness={0.6} />;
 
   return (

@@ -22,10 +22,12 @@ npm install
 npm run dev   # http://localhost:3000
 ```
 
-WASD/arrows to drive, Space to handbrake, **B** to cycle control between car,
-bike, and boat. A few self-driving traffic cars patrol the arena on their own.
-The city now streams in real chunks (roads, seeded buildings) as you drive,
-plus a water area the boat floats on — see Milestones for exactly what's real
+WASD/arrows to drive, Space to handbrake, **SHIFT** for nitro (car only), **B**
+to cycle control between car, bike, and boat, **C** (or the on-screen buttons)
+to cycle camera CHASE/COCKPIT/HOOD/CINE. A few self-driving traffic cars
+patrol the arena on their own. The city now streams in real chunks (roads,
+seeded buildings) as you drive, plus a water area the boat floats on — see
+Milestones for exactly what's real
 vs. placeholder.
 
 ## Migration phases
@@ -36,7 +38,7 @@ vs. placeholder.
 | 1 | Real chunk-streamed city: roads, seeded-random buildings, streaming as the player moves | ✅ done (see Milestone 5 — placeholder arena fully replaced) |
 | 2 | **Validation vehicle**: one car, arcade physics ported from the original game, collision via Rapier's `KinematicCharacterController` | ✅ done — feel holds up, see below |
 | 3 | Remaining vehicle types (bikes, boats w/ buoyancy), traffic AI | ✅ done (basic traffic; original's road-grid/lights/yielding still to come) |
-| 4 | HUD → real React components (speedo done as a proof of concept via zustand) | ◐ speedo only |
+| 4 | HUD → real React components: title/clock, speedo, nitro, hint/msg, camsel, controls legend, vignette, minimap | ✅ done (waypoint/big-map/touch-controls still need a landmark system — see Milestone 6) |
 | 5 | Audio, save/load, club interior, police convoy, boat-swap, police station | ⏳ not started |
 | 6 | Instance repeated props, perf pass, deploy | ⏳ not started |
 
@@ -280,10 +282,79 @@ it fully.
 `lib/worldState.ts` (new), `components/Car.tsx`/`Bike.tsx`/`Boat.tsx` (write
 `worldState` when active), `components/Game.tsx` (`City` swap, `dpr={1}`).
 
+## Milestone 6 — HUD/UI parity pass, Phase 4 complete (2026-07-24)
+
+**Goal:** the user asked explicitly for the UI to match the original,
+"better is more preferable, but I don't want to compromise on anything." This
+milestone ports the original's actual DOM/CSS HUD chrome, not a redesigned
+substitute — and adds the real mechanics behind pieces of it that didn't
+exist yet (nitro, alternate cameras), rather than static-only chrome.
+
+**HUD DOM/CSS is a direct port**, not a reinterpretation: `app/globals.css`
+carries over the original's `#hud`/`#speedo`/`#nitrobar`/`#hint`/`#msg`/
+`#camsel`/`#controls`/`#vig`/`#minimap` rules near-verbatim (same colors,
+same gradients, same layout numbers), and `HUD.tsx` renders the matching DOM
+structure so those rules apply exactly as they did in the original.
+
+**Real nitro, not just a bar**: `Car.tsx` now has the original's actual
+mechanic — `NITRO_MAX=10`s fuel, `NITRO_BOOST=41.7` m/s (+150km/h) raised cap,
+2.7× effective accel while boosting (same `accel*dt` base + `accel*1.7*dt`
+extra thrust as the original), fuel drains 1:1 while boosting and refills at
+half rate otherwise. SHIFT is now a real input (`useKeyboard` gained a
+`boost` key). Cars only — bikes and boats don't get nitro, matching the
+original.
+
+**Four real camera modes, not one**: `lib/cameraRig.ts` is a new shared
+module porting the original's *entire* camera block (chase/cockpit/hood/
+cinematic) — same distances, eye heights, and the cinematic mode's exact
+4-phase/20s-cycle orbiting-angle timings. Previously only a hardcoded chase
+cam existed; now all three vehicles get all four modes through one shared
+function (`C` key cycles, or click a `#camsel` button), rather than
+duplicating camera math per vehicle a third and fourth time.
+
+**Minimap is a real radar**, not a decoration: a canvas 2D component rotates
+the world by `-heading` so the player always faces "up" (the original's
+convention), drawing a faint road grid at `City.tsx`'s actual `CELL` spacing
+and live traffic blips from a new shared `trafficPositions` array (same
+plain-mutable-singleton pattern as `skyState`/`worldState`).
+
+**Caught and fixed 4 real bugs via a stricter linter this project ships with
+by default** (`eslint-config-next`'s bundled React Compiler rules, notably
+stricter than what came before): a genuine Rules-of-Hooks violation in
+`City.tsx` (`useMemo` called after a conditional early return — fixed by
+moving the shore-chunk skip to the parent's `.map` instead of inside
+`Chunk`), a ref read during render in `Boat.tsx`'s initial JSX position
+(fixed with the literal spawn coordinates instead), and an impure
+`Math.random()` inside a `useMemo` in `Car.tsx` (moved to a `useState` lazy
+initializer — canonical place for a one-time impure value). One category was
+a false positive worth understanding, not silencing blindly: the same
+linter flags `SkyCycle.tsx`'s `scene.background`/`fog` mutation inside
+`useFrame` as an "impurity," but `useFrame` callbacks run in three.js's
+render loop, outside React's own render cycle entirely — imperatively
+mutating scene state there is R3F's documented pattern, not a bug. Disabled
+with an explanatory comment at exactly those two lines, not file-wide.
+
+**Explicitly not done, by design — needs a landmark system that doesn't
+exist yet:** `#waypoint` (distance/arrow to a nav target — there's no target
+without landmarks), the big map screen (`#mapscreen`/`#bigmap`/destination
+list — same blocker), and `#touch-controls` (mobile joystick/buttons —
+deferred behind desktop parity, not forgotten).
+
+**Files added/changed:** `lib/cameraRig.ts`, `components/Minimap.tsx` (new);
+`lib/hudStore.ts` (camMode/hint/msg/nitro/clock state), `lib/useKeyboard.ts`
+(`boost` key), `lib/worldState.ts` (`heading`), `components/HUD.tsx`
+(full rebuild), `app/globals.css` (original's HUD CSS), `components/SkyCycle.tsx`
+(clock string), `components/Car.tsx`/`Bike.tsx`/`Boat.tsx` (cameraRig wiring,
+nitro), `components/Traffic.tsx` (`trafficPositions` export), `components/City.tsx`
+(hook-order fix).
+
 ## Next up
 
-Two candidates, in order of likely value: (1) confirm the `dpr={1}` fix
-actually resolved the split-screen render bug — needs eyes on it; (2) start
-tying `Traffic.tsx` to the real road grid from `City.tsx` instead of its own
-hardcoded lanes, and/or begin Phase 5 (audio, save/load, landmarks). Will ask
-which before committing effort to avoid guessing wrong on priority.
+On the explicit "don't compromise on anything" instruction: still open from
+the full original feature set (not just UI) — audio, save/load, club
+interior, the police station/convoy/boat-swap work from the original's own
+late-session milestones, and the landmark system that `#waypoint`/`#mapscreen`
+need. That's Phase 5 territory and it's substantial; will keep shipping it in
+the same small-milestone-then-push rhythm rather than batching it into one
+giant change. Also still owed: visually confirming the `dpr={1}` render fix
+from Milestone 5 — haven't had a clean browser-automation session since.

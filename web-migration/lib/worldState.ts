@@ -3,4 +3,4 @@
 // chunk-streamer can read it every frame without subscribing/re-rendering.
 // Whichever vehicle is active writes its own position here (mirrors the
 // original's `player.veh ? player.veh.x : player.x`).
-export const worldState = { px: 0, pz: 0 };
+export const worldState = { px: 0, pz: 0, heading: 0 };

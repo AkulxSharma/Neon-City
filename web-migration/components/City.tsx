@@ -55,6 +55,7 @@ export function City() {
     <>
       {chunks.map((key) => {
         const [ci, cj] = key.split(",").map(Number);
+        if (ci >= SHORE_CI) return null; // open water — Water.tsx already covers this area
         return <Chunk key={key} ci={ci} cj={cj} />;
       })}
     </>
@@ -70,8 +71,6 @@ function initialChunks() {
 }
 
 function Chunk({ ci, cj }: { ci: number; cj: number }) {
-  if (ci >= SHORE_CI) return null; // open water — Water.tsx already covers this area
-
   const cx = ci * CELL;
   const cz = cj * CELL;
   const isSpawn = ci === 0 && cj === 0; // keep the spawn block clear, like the original's showroom/club exemption

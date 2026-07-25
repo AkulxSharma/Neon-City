@@ -8,6 +8,7 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BOAT_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { applyCameraRig } from "@/lib/cameraRig";
 import { WATER_LEVEL } from "@/components/Water";
 
 // A hull has no floor to snap to, so unlike Car.tsx this doesn't use Rapier's
@@ -64,24 +65,27 @@ export function Boat() {
     if (!isActive) return;
     worldState.px = pos.current.x;
     worldState.pz = pos.current.z;
+    worldState.heading = boat.current.h;
 
-    const dir = new THREE.Vector3(Math.sin(boat.current.h), 0, Math.cos(boat.current.h));
-    const targetCamPos = new THREE.Vector3(
-      pos.current.x - dir.x * 9,
-      y + 4,
-      pos.current.z - dir.z * 9
-    );
-    const targetLook = new THREE.Vector3(pos.current.x + dir.x * 4, y + 1, pos.current.z + dir.z * 4);
-    camPos.current.lerp(targetCamPos, Math.min(1, d * 4));
-    camLook.current.lerp(targetLook, Math.min(1, d * 6));
-    camera.position.copy(camPos.current);
-    camera.lookAt(camLook.current);
+    applyCameraRig({
+      camera,
+      camPos: camPos.current,
+      camLook: camLook.current,
+      tx: pos.current.x,
+      ty: y,
+      tz: pos.current.z,
+      th: boat.current.h,
+      isBike: false,
+      camMode: useHudStore.getState().camMode,
+      time: state.clock.elapsedTime,
+      dt: d,
+    });
 
     useHudStore.getState().setHud(Math.round(Math.abs(boat.current.speed) * 3.6), true);
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[pos.current.x, WATER_LEVEL, pos.current.z]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[40, WATER_LEVEL, 0]}>
       <mesh castShadow>
         <boxGeometry args={[hullSize.x, hullSize.y, hullSize.z]} />
         <meshStandardMaterial color="#e8e2d0" metalness={0.35} roughness={0.34} />

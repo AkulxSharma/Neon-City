@@ -8,6 +8,7 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BIKE_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { applyCameraRig } from "@/lib/cameraRig";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
@@ -47,7 +48,7 @@ export function Bike() {
 
   const bikeBox = useMemo(() => new THREE.Vector3(0.7, 0.9, 1.9), []);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const body = bodyRef.current;
     const controller = controllerRef.current;
     const collider = colliderRef.current;
@@ -87,14 +88,21 @@ export function Bike() {
     if (!isActive) return;
     worldState.px = nextPos.x;
     worldState.pz = nextPos.z;
+    worldState.heading = bike.current.h;
 
-    const dir = new THREE.Vector3(Math.sin(bike.current.h), 0, Math.cos(bike.current.h));
-    const targetCamPos = new THREE.Vector3(nextPos.x - dir.x * 6, nextPos.y + 2.8, nextPos.z - dir.z * 6);
-    const targetLook = new THREE.Vector3(nextPos.x + dir.x * 4, nextPos.y + 1, nextPos.z + dir.z * 4);
-    camPos.current.lerp(targetCamPos, Math.min(1, d * 4));
-    camLook.current.lerp(targetLook, Math.min(1, d * 6));
-    camera.position.copy(camPos.current);
-    camera.lookAt(camLook.current);
+    applyCameraRig({
+      camera,
+      camPos: camPos.current,
+      camLook: camLook.current,
+      tx: nextPos.x,
+      ty: nextPos.y,
+      tz: nextPos.z,
+      th: bike.current.h,
+      isBike: true,
+      camMode: useHudStore.getState().camMode,
+      time: state.clock.elapsedTime,
+      dt: d,
+    });
 
     useHudStore.getState().setHud(Math.round(Math.abs(bike.current.speed) * 3.6), grounded);
   });

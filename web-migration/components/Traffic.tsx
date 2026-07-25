@@ -33,17 +33,21 @@ const LANES: Lane[] = [
   { axis: "x", lane: 0, min: -85, max: 85, speed: 8, color: "#2a5a3a" },
 ];
 
+// read by Minimap.tsx to draw traffic blips — same shared-singleton pattern as
+// skyState/worldState, updated in place (not replaced) so it never allocates
+export const trafficPositions: { x: number; z: number }[] = LANES.map(() => ({ x: 0, z: 0 }));
+
 export function Traffic() {
   return (
     <>
       {LANES.map((lane, i) => (
-        <TrafficCar key={i} lane={lane} seed={i} />
+        <TrafficCar key={i} lane={lane} seed={i} index={i} />
       ))}
     </>
   );
 }
 
-function TrafficCar({ lane, seed }: { lane: Lane; seed: number }) {
+function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: number }) {
   const bodyRef = useRef<RapierRigidBody>(null);
   const pos = useRef((lane.min + lane.max) / 2 + seed * 7);
   const dir = useRef(seed % 2 === 0 ? 1 : -1);
@@ -69,6 +73,8 @@ function TrafficCar({ lane, seed }: { lane: Lane; seed: number }) {
 
     body.setNextKinematicTranslation({ x, y: 0.85, z });
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading));
+    trafficPositions[index].x = x;
+    trafficPositions[index].z = z;
   });
 
   return (

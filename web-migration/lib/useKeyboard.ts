@@ -8,6 +8,7 @@ export interface KeyState {
   left: boolean;
   right: boolean;
   handbrake: boolean;
+  boost: boolean;
 }
 
 const CODE_MAP: Record<string, keyof KeyState> = {
@@ -20,6 +21,8 @@ const CODE_MAP: Record<string, keyof KeyState> = {
   KeyD: "right",
   ArrowRight: "right",
   Space: "handbrake",
+  ShiftLeft: "boost",
+  ShiftRight: "boost",
 };
 
 /** Live keyboard state in a ref — read inside useFrame, never triggers a re-render. */
@@ -30,6 +33,7 @@ export function useKeyboard() {
     left: false,
     right: false,
     handbrake: false,
+    boost: false,
   });
 
   useEffect(() => {

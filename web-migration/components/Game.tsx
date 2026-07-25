@@ -17,7 +17,13 @@ import { useHudStore } from "@/lib/hudStore";
 export default function Game() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "KeyB") useHudStore.getState().toggleActive();
+      const hud = useHudStore.getState();
+      if (e.code === "KeyB") {
+        hud.toggleActive();
+        hud.showMsg("SWITCHED TO: " + hud.vehicleName());
+      } else if (e.code === "KeyC") {
+        hud.cycleCamMode();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
