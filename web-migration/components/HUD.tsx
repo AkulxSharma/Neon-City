@@ -32,11 +32,13 @@ export function HUD() {
         <div id="clock">{clock}</div>
       </div>
 
-      <div id="speedo" style={{ display: "block" }}>
-        <div className="num">{speedKmh}</div>
-        <div className="unit">KM/H</div>
-        <div className="veh">{vehicleName}</div>
-      </div>
+      {active !== "foot" && (
+        <div id="speedo" style={{ display: "block" }}>
+          <div className="num">{speedKmh}</div>
+          <div className="unit">KM/H</div>
+          <div className="veh">{vehicleName}</div>
+        </div>
+      )}
 
       {active === "car" && (
         <div id="nitrobar" className={nitroActive ? "active" : ""} style={{ display: "block" }}>
@@ -88,6 +90,10 @@ export function HUD() {
         <b>SPACE</b> handbrake
         <br />
         <b>SHIFT</b> nitro (car)
+        <br />
+        <b>SPACE</b> jump (on foot)
+        <br />
+        <b>E</b> vehicle / club door
         <br />
         <b>B</b> switch vehicle
         <br />

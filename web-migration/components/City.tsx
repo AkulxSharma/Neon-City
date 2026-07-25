@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
 import { LANDMARKS } from "@/lib/landmarks";
+import { CLUB_IN } from "@/lib/club";
 
 // Real chunk-streamed city (Milestone 5), replacing the placeholder 7-box
 // arena from Phase 1. Same constants and the same seeded-PRNG-per-chunk
@@ -36,6 +37,9 @@ const FACADE_COLORS = ["#8a94a0", "#7fa8be", "#9aa8c4", "#6c7686", "#8b93a1"];
 // which chunk each landmark sits in, so buildChunk (well, Chunk) forces it clear —
 // same idea as the original's landmarkChunks map
 const LANDMARK_CHUNKS = new Set(LANDMARKS.map((l) => `${Math.round(l.x / CELL)},${Math.round(l.z / CELL)}`));
+// CLUB_IN sits far south, outside any real landmark chunk — exempt it too so
+// no random building spawns inside/around the club interior room
+const CLUB_IN_CHUNK = `${Math.round(CLUB_IN.x / CELL)},${Math.round(CLUB_IN.z / CELL)}`;
 
 export function City() {
   const [chunks, setChunks] = useState<string[]>(() => initialChunks());
@@ -80,7 +84,7 @@ function Chunk({ ci, cj }: { ci: number; cj: number }) {
   const cz = cj * CELL;
   // keep the spawn block and any landmark's block clear of random buildings,
   // like the original's showroom/club/landmarkChunks exemptions
-  const isExempt = (ci === 0 && cj === 0) || LANDMARK_CHUNKS.has(`${ci},${cj}`);
+  const isExempt = (ci === 0 && cj === 0) || LANDMARK_CHUNKS.has(`${ci},${cj}`) || `${ci},${cj}` === CLUB_IN_CHUNK;
 
   const buildings = useMemo(() => {
     if (isExempt) return [];

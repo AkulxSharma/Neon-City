@@ -445,14 +445,151 @@ minimap click, mounts `BigMap`), `components/Game.tsx` (`G`/`Escape` keys),
 `app/globals.css` (`#waypoint`/`#mapscreen`/`#bigmap`/`#maplist`/`#mapclose`
 rules, ported from the original).
 
+## Milestone 9 — club interior, door-proximity mechanic (2026-07-24)
+
+**Goal:** the first half of "Next up" — a real walk-in VENU, not just a
+beacon. Deliberately scoped down from a full port (see below); the police
+station/convoy/boat-swap/dock-collision work is still next, unstarted.
+
+**No on-foot mode exists in this build (Phase 3 never added one), so the
+door mechanic is redefined around vehicles instead of walking.** The
+original requires `player.onFoot` before `clubDoorAction()` does anything;
+building a real walking-player system (leave-vehicle, capsule controller,
+re-enter) just to gate a door was judged out of scope for this pass — so
+entry/exit triggers off proximity to the door while driving car or bike
+(boat explicitly excluded, see `lib/club.ts`), same squared-distance
+thresholds as the original otherwise. **Not building an on-foot mode is the
+single biggest simplification here** — it's also what blocks the
+Bollywood dance-emote and the original's "walk up, steal a car" mechanic
+from ever being ported as-is.
+
+**The interior is a real place in the world, not an overlay scene** —
+`CLUB`/`CLUB_IN` in `lib/club.ts` are the original's exact coordinates
+(`CLUB_IN` built far south so it never meets the streamed city).
+`City.tsx` gained one more chunk exemption (alongside spawn/landmark
+chunks) so no random building spawns on top of the room. Entering/exiting
+teleports the active vehicle via a new `lib/clubTeleport.ts` singleton
+(same mutable-object pattern as `worldState`/`skyState`) — `Car.tsx` and
+`Bike.tsx` poll it once per frame and consume it with `body.setTranslation`
+when they're the active vehicle; nothing polls it for the boat, which is
+why boat entry is blocked at the source in `clubDoorAction()` rather than
+silently queuing a teleport nobody picks up.
+
+**Crowd is deliberately not rigged.** The original's ~40 dancers/patrons
+each have independently-animated arms/legs/torso (`fig()`'s bollywood
+thumka/jhatka). That's cut to 16 simple capsule-body blobs
+(`components/ClubInterior.tsx`) that bob and sway in place, driven by the
+same 130bpm `beat`/`bps` math as the original's `updateClub()` — reads as a
+moving crowd from driving distance, costs a fraction of the geometry and
+skips per-figure limb rigs entirely. Also cut for scope, all decoration-only:
+the bar/bottle-shelf, VIP couches, chrome poles + pole dancers, and the
+three exterior light-beam cones. Kept: floor/walls/ceiling (with real
+`RigidBody` colliders so driving can't clip through), stage, DJ booth,
+disco ball, 3 orbiting color-cycling spotlights, 8 laser cones, checker
+dance floor with beat-synced emissive pulse, exit door/sign.
+
+**Club music is a near-verbatim port**, not a placeholder — `lib/audio.ts`
+gained `startClubMusic()`/`stopClubMusic()`, the original's full tabla/tap/
+hat/melody/bass oscillator schedule at the same 130bpm, same synthesis
+constants, same self-scheduling `requestAnimationFrame` look-ahead
+technique. Skipped restoring club music across a page reload (saving/
+restoring `hud.inClub` itself was judged not worth it this pass either) —
+if you reload mid-club you land back outside; noted as a real gap, not
+hidden.
+
+**Verified:** `tsc --noEmit` and `eslint` clean; dev server recompiles with
+no runtime errors. **Not yet done:** driving the car to the door and back
+through an actual browser session — no browser-automation tool is
+installed in this project, so this is reasoned from the code and the
+original's line-for-line port, not confirmed with a screenshot. Same honest
+gap as Milestone 5's `dpr={1}` fix, which is *also* still unconfirmed.
+
+**Files added/changed:** `lib/club.ts`, `lib/clubTeleport.ts` (new),
+`components/Club.tsx`, `components/ClubInterior.tsx` (new); `lib/audio.ts`
+(`startClubMusic`/`stopClubMusic`), `lib/hudStore.ts` (`inClub`),
+`components/Car.tsx`/`Bike.tsx` (teleport consume), `components/City.tsx`
+(`CLUB_IN` chunk exemption), `components/LandmarkMarkers.tsx` (VENU marker
+suppressed — the club has its own sign now, same as the original's
+`if(L.kind==='club') continue`), `components/Game.tsx` (`E` key, mounts).
+
+## Milestone 10 — on-foot mode (2026-07-24)
+
+**Goal:** Milestone 9 named this the single biggest gap it left behind —
+the user asked for it directly, calling on-foot movement the actual point
+of the game. Full port, not a cut-down: `components/Player.tsx` is a real
+walking player with the original's exact numbers (turn 2.6 rad/s, walk 4.5
+/ sprint 9 m/s SHIFT, accel/decel ramp 30/36, jump vy=7.5 with the
+asymmetric held/released gravity for a variable-height hop), a proper suit
+figure ported mesh-for-mesh from the original's `pMesh` (jacket/vest/tie,
+exact box dimensions and pivots — not a placeholder capsule), and the
+original's own walk-cycle/mid-air-tuck/bollywood-dance-emote limb math.
+
+**Same architecture as Car/Bike, not a new one**: a `kinematicPosition`
+RigidBody + `KinematicCharacterController`, the identical pattern Milestone
+1 established — jump is the only new physics shape (a signed vertical
+velocity fed through the controller each frame instead of Car/Bike's
+constant ground-snap pull).
+
+**Mount/dismount (E) reuses vehicleState, no new collision needed** —
+`lib/player.ts`'s `toggleVehicleFoot()` finds the nearest of
+`vehicleState.{car,bike,boat}` within 4.5 units (ported threshold) and
+flips `hud.active`; dismounting computes the original's exact spawn offset
+(`v.x+cos(h)*2.4, v.z-sin(h)*2.4`) and hands it to a new one-shot
+`lib/playerTeleport.ts` singleton (mirrors `lib/clubTeleport.ts`, kept
+separate on purpose — the two are never meant to serve the same frame's
+request, see the learnings note). Car/Bike already ran their physics step
+every frame regardless of `active` (Milestone 2's "decelerates naturally
+instead of freezing" design) so a parked vehicle is already sitting still
+by the time you walk up to it — no extra state needed there.
+
+**Club door now genuinely supports all three ways in** (car, bike, or on
+foot) — `lib/club.ts`'s `clubDoorAction()` routes its teleport to whichever
+singleton the active mode actually polls. Walking into VENU now plays the
+real bollywood dance emote when you stand still on the dance floor,
+matching the original exactly (this was impossible before Player.tsx
+existed).
+
+**Hint text centralized to avoid a two-writer race**: both the club door
+and the new vehicle-mount check want to drive `#hint` every frame; rather
+than let `Club.tsx` and `Player.tsx` both call `hud.setHint()` (order-
+dependent flicker), `lib/hint.ts` is the single priority-ordered function
+(club door beats vehicle-mount, same order as the original's
+`if(!clubDoorAction()) toggleVehicle()`), polled from the one place
+(`Club.tsx`) that was already always-mounted.
+
+**Verified in a real browser, not just compiled** — installed Playwright
+(`npm install --no-save playwright`, not persisted to `package.json`) and
+drove a headless Chromium through: load → click (user gesture for audio) →
+`E` to dismount → walk (W+A) → sprint+jump (SHIFT+Space) → `E` again.
+Zero console/page errors across the whole run. Screenshots confirm: the
+suited player mesh renders next to the car, `ON FOOT` toast fires, `#speedo`
+correctly unmounts, the mount hint (`Press E to drive — CITY SEDAN`) shows
+at the right distance, the minimap/waypoint rotate correctly off the
+player's own heading (not the last vehicle's), and the jump arc visibly
+lifts the chase camera. This is real confirmation, not the "reasoned from
+the code" caveat Milestones 5 and 9 had to leave behind.
+
+**Files added/changed:** `components/Player.tsx`, `lib/player.ts`,
+`lib/playerTeleport.ts`, `lib/hint.ts` (new); `lib/hudStore.ts`
+(`ActiveMode = VehicleKind | "foot"`, `setActive`, `toggleActive` no-ops on
+foot, exported `VEHICLE_NAMES`), `lib/club.ts` (teleport routing, foot
+allowed through the door), `lib/saveGame.ts` (`SaveData.active: ActiveMode`),
+`components/Game.tsx` (`E` falls through to `toggleVehicleFoot()`, mounts
+`Player`, fixed the save-restore loop so `active:"foot"` can't infinite-loop
+`toggleActive`), `components/HUD.tsx` (`#speedo` hidden on foot, `E`/jump
+added to the controls legend).
+
 ## Next up
 
-Landmarks unblock the rest: club interior (walk-in room at VENU, same
-door-proximity mechanic as the original) and the police station/convoy/
-boat-swap/dock-collision work from the original's own late-session
-milestones — both now have real coordinates to build at instead of picking
-new ones. Club first since it's self-contained; police next since it depends
-on the boat-collision work already done in the original index.html (dock
-solidity, convoy hull-matching) needing a genuine port, not a re-derivation.
-Also still owed: visually confirming the `dpr={1}` render fix from
-Milestone 5 — haven't had a clean browser-automation session since.
+Police station/convoy/boat-swap/dock-collision. Unlike everything before
+it, **this is a pure port, not new design work** — a prior session already
+built the real thing in the original `index.html` (see the
+[boat-physics-and-police-harbor](../learnings/2026-07-24-boat-physics-and-police-harbor.md)
+learnings note): `POLICE HARBOR STATION` at chunk `(4,0)` (~line 5909),
+`pierPush()`/`pierColliders` for hull-only dock collision (~line 4120,
+6822), `nearBoatToBoard` for E-to-swap-boats (~line 6846), and a full
+convoy system — recruit-on-siren, felony-stop boxing-in formation, slot-
+based follow distances (~line 7365-7562). Also still owed: visually
+confirming the `dpr={1}` render fix from Milestone 5 in a real browser now
+that Playwright is available in this project (Milestone 10 only covered
+its own feature, not the older backlog item).

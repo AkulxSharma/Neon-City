@@ -10,7 +10,7 @@ import { LANDMARKS } from "@/lib/landmarks";
 export function LandmarkMarkers() {
   return (
     <>
-      {LANDMARKS.map((l) => (
+      {LANDMARKS.filter((l) => l.name !== "VENU").map((l) => (
         <group key={l.name} position={[l.x, 0, l.z]}>
           <mesh position={[0, 8, 0]}>
             <cylinderGeometry args={[0.15, 0.15, 16, 6]} />

@@ -107,3 +107,158 @@ export function updateEngineAudio(speedKmh: number, nitroActive: boolean) {
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
 }
+
+// ---------- club music (VENU) ----------
+// Ported near-verbatim from the original's startClubMusic() — same tabla/tap/
+// hat/melody/bass schedule, same 130bpm 16-step pattern, same synthesis
+// constants. A self-scheduling requestAnimationFrame loop, not a fixed
+// interval, so it can look ahead and schedule notes slightly early (the
+// original's own technique for glitch-free Web Audio timing).
+interface ClubMusic {
+  playing: boolean;
+  raf: number;
+  stop: () => void;
+}
+let clubMusic: ClubMusic | null = null;
+
+export function startClubMusic() {
+  if (clubMusic) return;
+  initAudio();
+  if (!audio) return;
+  const ctx = audio.ctx;
+  const master = ctx.createGain();
+  master.gain.value = 0.38;
+  master.connect(ctx.destination);
+  const bpm = 130;
+  const beatSec = 60 / bpm;
+
+  function scheduleTabla(t: number) {
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(90, t);
+    o.frequency.exponentialRampToValueAtTime(58, t + 0.1);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.38, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    o.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + 0.16);
+  }
+  function scheduleTap(t: number) {
+    const o = ctx.createOscillator();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(320, t);
+    o.frequency.exponentialRampToValueAtTime(160, t + 0.06);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.35, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    o.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + 0.1);
+  }
+  function scheduleHat(t: number, accent: boolean) {
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.6;
+    const n = ctx.createBufferSource();
+    n.buffer = buf;
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 7000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(accent ? 0.22 : 0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    n.connect(hp);
+    hp.connect(g);
+    g.connect(master);
+    n.start(t);
+    n.stop(t + 0.08);
+  }
+  const melodyNotes = [
+    293.66, 329.63, 349.23, 392.0, 440.0, 349.23, 329.63, 293.66, 261.63, 293.66, 329.63, 349.23, 392.0, 440.0,
+    493.88, 440.0, 392.0, 349.23, 329.63, 293.66, 349.23, 392.0, 440.0, 392.0, 523.25, 493.88, 440.0, 392.0, 349.23,
+    329.63, 293.66, 329.63,
+  ];
+  let melIdx = 0;
+  function scheduleMelody(t: number) {
+    const freq = melodyNotes[melIdx % melodyNotes.length];
+    melIdx++;
+    const mod = ctx.createOscillator();
+    mod.type = "sine";
+    mod.frequency.value = freq * 3;
+    const modG = ctx.createGain();
+    modG.gain.value = freq * 1.5;
+    const car = ctx.createOscillator();
+    car.type = "sine";
+    car.frequency.value = freq;
+    mod.connect(modG);
+    modG.connect(car.frequency);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.18, t);
+    env.gain.setValueAtTime(0.18, t + beatSec * 0.15);
+    env.gain.exponentialRampToValueAtTime(0.001, t + beatSec * 0.9);
+    car.connect(env);
+    env.connect(master);
+    mod.start(t);
+    car.start(t);
+    mod.stop(t + beatSec);
+    car.stop(t + beatSec);
+  }
+  const bassNotes = [146.83, 164.81, 174.61, 196.0, 146.83, 130.81, 146.83, 164.81];
+  let bassIdx = 0;
+  function scheduleBass(t: number) {
+    const freq = bassNotes[bassIdx % bassNotes.length];
+    bassIdx++;
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.value = freq;
+    const f = ctx.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.value = 300;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + beatSec * 1.8);
+    o.connect(f);
+    f.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + beatSec * 2);
+  }
+
+  let nextBeat = ctx.currentTime + 0.05;
+  let beatCount = 0;
+  let raf = 0;
+  function schedule() {
+    if (!clubMusic?.playing) return;
+    while (nextBeat < ctx.currentTime + 0.3) {
+      const b = beatCount % 16;
+      if (b % 4 === 0 || b % 4 === 3) scheduleTabla(nextBeat);
+      if (b % 4 === 1 || b % 4 === 2) scheduleTap(nextBeat);
+      scheduleHat(nextBeat, b % 4 === 0);
+      if (b % 2 === 0) scheduleMelody(nextBeat);
+      if (b % 4 === 0) scheduleBass(nextBeat);
+      nextBeat += beatSec;
+      beatCount++;
+    }
+    raf = requestAnimationFrame(schedule);
+    if (clubMusic) clubMusic.raf = raf;
+  }
+  clubMusic = {
+    playing: true,
+    raf: 0,
+    stop() {
+      this.playing = false;
+      cancelAnimationFrame(this.raf);
+      master.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+      setTimeout(() => master.disconnect(), 2000);
+      clubMusic = null;
+    },
+  };
+  schedule();
+}
+
+export function stopClubMusic() {
+  clubMusic?.stop();
+}

@@ -11,6 +11,7 @@ import { worldState } from "@/lib/worldState";
 import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
+import { teleportRequest } from "@/lib/clubTeleport";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
@@ -59,6 +60,20 @@ export function Bike() {
     const d = Math.min(dt, 0.05);
 
     const isActive = useHudStore.getState().active === "bike";
+
+    // club door teleport (enter/exit VENU) — see lib/club.ts
+    if (isActive && teleportRequest.pending) {
+      teleportRequest.pending = false;
+      body.setTranslation({ x: teleportRequest.x, y: 1, z: teleportRequest.z }, true);
+      bike.current.h = teleportRequest.h;
+      bike.current.speed = 0;
+      bike.current.vLat = 0;
+      worldState.px = teleportRequest.x;
+      worldState.pz = teleportRequest.z;
+      worldState.heading = teleportRequest.h;
+      return;
+    }
+
     const k = keys.current;
     const steer = isActive ? (k.left ? 1 : 0) - (k.right ? 1 : 0) : 0;
 

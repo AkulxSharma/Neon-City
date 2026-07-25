@@ -11,6 +11,9 @@ import { Car } from "@/components/Car";
 import { Boat } from "@/components/Boat";
 import { Bike } from "@/components/Bike";
 import { Traffic } from "@/components/Traffic";
+import { Player } from "@/components/Player";
+import { Club } from "@/components/Club";
+import { ClubInterior } from "@/components/ClubInterior";
 import { AudioEngine } from "@/components/AudioEngine";
 import { LandmarkMarkers } from "@/components/LandmarkMarkers";
 import { WaypointTracker } from "@/components/WaypointTracker";
@@ -18,6 +21,8 @@ import { HUD } from "@/components/HUD";
 import { useHudStore } from "@/lib/hudStore";
 import { initAudio, toggleMute, setMuted } from "@/lib/audio";
 import { loadSave, saveGame } from "@/lib/saveGame";
+import { clubDoorAction } from "@/lib/club";
+import { toggleVehicleFoot } from "@/lib/player";
 
 export default function Game() {
   // restore active vehicle/camera/mute once at mount — vehicle *positions*
@@ -28,9 +33,12 @@ export default function Game() {
     if (!save) return;
     useHudStore.getState().setCamMode(save.camMode);
     setMuted(save.muted);
-    // don't restore `active` via toggleActive (cycles relative to current);
-    // hudStore's default is "car", so only touch it if the save disagrees
-    if (save.active !== "car") {
+    // don't restore `active` via toggleActive (cycles relative to current, and
+    // can't reach "foot" at all — see hudStore.toggleActive's no-op-on-foot
+    // guard); hudStore's default is "car", so only touch it if the save disagrees
+    if (save.active === "foot") {
+      useHudStore.getState().setActive("foot");
+    } else if (save.active !== "car") {
       while (useHudStore.getState().active !== save.active) useHudStore.getState().toggleActive();
     }
   }, []);
@@ -48,7 +56,9 @@ export default function Game() {
     const onKey = (e: KeyboardEvent) => {
       initAudio(); // no-ops once already initialized; needs a real user gesture, so first key does it
       const hud = useHudStore.getState();
-      if (e.code === "KeyB") {
+      if (e.code === "KeyE") {
+        if (!clubDoorAction()) toggleVehicleFoot();
+      } else if (e.code === "KeyB") {
         hud.toggleActive();
         hud.showMsg("SWITCHED TO: " + hud.vehicleName());
       } else if (e.code === "KeyC") {
@@ -85,6 +95,9 @@ export default function Game() {
             <Boat />
             <Bike />
             <Traffic />
+            <Player />
+            <Club />
+            <ClubInterior />
           </Physics>
           {/* threshold-gated like the original's UnrealBloomPass(strength .9, threshold
               .82) — only true emissive neon blooms, not the lit ground/facades */}

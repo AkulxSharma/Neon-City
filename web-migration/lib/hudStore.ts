@@ -2,18 +2,19 @@ import { create } from "zustand";
 import { LANDMARKS, type Landmark } from "@/lib/landmarks";
 
 export type VehicleKind = "car" | "boat" | "bike";
+export type ActiveMode = VehicleKind | "foot";
 export const CAM_MODES = ["CHASE", "COCKPIT", "HOOD", "CINE"] as const;
 export type CamMode = 0 | 1 | 2 | 3;
 
 const CYCLE: VehicleKind[] = ["car", "bike", "boat"];
-const NAMES: Record<VehicleKind, string> = { car: "CITY SEDAN", bike: "STREET BIKE", boat: "SEA SPRITE" };
+export const VEHICLE_NAMES: Record<VehicleKind, string> = { car: "CITY SEDAN", bike: "STREET BIKE", boat: "SEA SPRITE" };
 
 let msgTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface HudState {
   speedKmh: number;
   grounded: boolean;
-  active: VehicleKind;
+  active: ActiveMode;
   camMode: CamMode;
   hint: string | null;
   msg: string | null;
@@ -24,8 +25,10 @@ interface HudState {
   waypointDist: number;
   waypointDeg: number;
   mapOpen: boolean;
+  inClub: boolean;
   setHud: (speedKmh: number, grounded: boolean) => void;
   toggleActive: () => void;
+  setActive: (m: ActiveMode) => void;
   setCamMode: (m: CamMode) => void;
   cycleCamMode: () => void;
   setHint: (h: string | null) => void;
@@ -35,6 +38,7 @@ interface HudState {
   setWaypoint: (dist: number, deg: number) => void;
   setNavTarget: (l: Landmark) => void;
   setMapOpen: (open: boolean) => void;
+  setInClub: (v: boolean) => void;
   vehicleName: () => string;
 }
 
@@ -57,9 +61,13 @@ export const useHudStore = create<HudState>((set, get) => ({
   waypointDist: 0,
   waypointDeg: 0,
   mapOpen: false,
+  inClub: false,
   setHud: (speedKmh, grounded) => set({ speedKmh, grounded }),
+  // no-ops while on foot — B is this build's own quick-switch between owned
+  // vehicles, not a thing while walking (mount via E near a vehicle instead)
   toggleActive: () =>
-    set((s) => ({ active: CYCLE[(CYCLE.indexOf(s.active) + 1) % CYCLE.length] })),
+    set((s) => (s.active === "foot" ? s : { active: CYCLE[(CYCLE.indexOf(s.active) + 1) % CYCLE.length] })),
+  setActive: (m) => set({ active: m }),
   setCamMode: (m) => set({ camMode: m }),
   cycleCamMode: () => set((s) => ({ camMode: (((s.camMode + 1) % 4) as CamMode) })),
   setHint: (h) => set({ hint: h }),
@@ -73,5 +81,9 @@ export const useHudStore = create<HudState>((set, get) => ({
   setWaypoint: (dist, deg) => set({ waypointDist: dist, waypointDeg: deg }),
   setNavTarget: (l) => set({ navTarget: l, mapOpen: false }),
   setMapOpen: (open) => set({ mapOpen: open }),
-  vehicleName: () => NAMES[get().active],
+  setInClub: (v) => set({ inClub: v }),
+  vehicleName: () => {
+    const a = get().active;
+    return a === "foot" ? "ON FOOT" : VEHICLE_NAMES[a];
+  },
 }));
