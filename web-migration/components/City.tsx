@@ -6,6 +6,7 @@ import { RigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
+import { LANDMARKS } from "@/lib/landmarks";
 
 // Real chunk-streamed city (Milestone 5), replacing the placeholder 7-box
 // arena from Phase 1. Same constants and the same seeded-PRNG-per-chunk
@@ -31,6 +32,10 @@ function mulberry32(seed: number) {
 }
 
 const FACADE_COLORS = ["#8a94a0", "#7fa8be", "#9aa8c4", "#6c7686", "#8b93a1"];
+
+// which chunk each landmark sits in, so buildChunk (well, Chunk) forces it clear —
+// same idea as the original's landmarkChunks map
+const LANDMARK_CHUNKS = new Set(LANDMARKS.map((l) => `${Math.round(l.x / CELL)},${Math.round(l.z / CELL)}`));
 
 export function City() {
   const [chunks, setChunks] = useState<string[]>(() => initialChunks());
@@ -73,10 +78,12 @@ function initialChunks() {
 function Chunk({ ci, cj }: { ci: number; cj: number }) {
   const cx = ci * CELL;
   const cz = cj * CELL;
-  const isSpawn = ci === 0 && cj === 0; // keep the spawn block clear, like the original's showroom/club exemption
+  // keep the spawn block and any landmark's block clear of random buildings,
+  // like the original's showroom/club/landmarkChunks exemptions
+  const isExempt = (ci === 0 && cj === 0) || LANDMARK_CHUNKS.has(`${ci},${cj}`);
 
   const buildings = useMemo(() => {
-    if (isSpawn) return [];
+    if (isExempt) return [];
     const rand = mulberry32(((ci * 73856093) ^ (cj * 19349663) ^ 0x5bd1e995) >>> 0);
     const count = rand() < 0.3 ? 0 : rand() < 0.7 ? 1 : 2;
     const margin = ROAD_W / 2 + 6;

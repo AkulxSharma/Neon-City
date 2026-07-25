@@ -2,12 +2,13 @@
 
 import { useHudStore, CAM_MODES, type CamMode } from "@/lib/hudStore";
 import { Minimap } from "@/components/Minimap";
+import { BigMap } from "@/components/BigMap";
 
 // DOM/CSS structure ported 1:1 from the original index.html's HUD (#hud,
-// #speedo, #nitrobar, #hint, #msg, #camsel, #controls, #vig, #minimap — see
-// app/globals.css for the matching styles, copied from the original's <style>
-// block). Not yet ported: #waypoint/#mapscreen (need a landmark system that
-// doesn't exist yet) and #touch-controls (mobile — desktop parity first).
+// #speedo, #nitrobar, #hint, #msg, #camsel, #controls, #vig, #minimap,
+// #waypoint, #mapscreen — see app/globals.css for the matching styles,
+// copied from the original's <style> block). Not yet ported: #touch-controls
+// (mobile — desktop parity first).
 export function HUD() {
   const speedKmh = useHudStore((s) => s.speedKmh);
   const active = useHudStore((s) => s.active);
@@ -19,6 +20,10 @@ export function HUD() {
   const camMode = useHudStore((s) => s.camMode);
   const setCamMode = useHudStore((s) => s.setCamMode);
   const vehicleName = useHudStore((s) => s.vehicleName());
+  const navTarget = useHudStore((s) => s.navTarget);
+  const waypointDist = useHudStore((s) => s.waypointDist);
+  const waypointDeg = useHudStore((s) => s.waypointDeg);
+  const setMapOpen = useHudStore((s) => s.setMapOpen);
 
   return (
     <>
@@ -41,6 +46,16 @@ export function HUD() {
           <div className="ntrack">
             <div className="nfill" style={{ width: `${(nitroFuel * 100).toFixed(1)}%` }} />
           </div>
+        </div>
+      )}
+
+      {navTarget && waypointDist >= 7 && (
+        <div id="waypoint" style={{ display: "flex" }}>
+          <span className="arrow" style={{ color: navTarget.col, transform: `rotate(${waypointDeg}deg)` }}>
+            ➤
+          </span>
+          <span className="lbl">{navTarget.name}</span>
+          <span className="dist">{Math.round(waypointDist)}m</span>
         </div>
       )}
 
@@ -79,10 +94,16 @@ export function HUD() {
         <b>C</b> camera view
         <br />
         <b>M</b> mute engine
+        <br />
+        <b>G</b> map / directions
       </div>
 
       <div id="vig" />
-      <Minimap />
+      <div onClick={() => setMapOpen(true)}>
+        <Minimap />
+      </div>
+      <div id="maphint">click map for directions</div>
+      <BigMap />
     </>
   );
 }

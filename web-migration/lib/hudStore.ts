@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { LANDMARKS, type Landmark } from "@/lib/landmarks";
 
 export type VehicleKind = "car" | "boat" | "bike";
 export const CAM_MODES = ["CHASE", "COCKPIT", "HOOD", "CINE"] as const;
@@ -19,6 +20,10 @@ interface HudState {
   nitroFuel: number; // 0..1
   nitroActive: boolean;
   clock: string;
+  navTarget: Landmark | null;
+  waypointDist: number;
+  waypointDeg: number;
+  mapOpen: boolean;
   setHud: (speedKmh: number, grounded: boolean) => void;
   toggleActive: () => void;
   setCamMode: (m: CamMode) => void;
@@ -27,6 +32,9 @@ interface HudState {
   showMsg: (text: string) => void;
   setNitro: (fuel: number, active: boolean) => void;
   setClock: (c: string) => void;
+  setWaypoint: (dist: number, deg: number) => void;
+  setNavTarget: (l: Landmark) => void;
+  setMapOpen: (open: boolean) => void;
   vehicleName: () => string;
 }
 
@@ -45,6 +53,10 @@ export const useHudStore = create<HudState>((set, get) => ({
   nitroFuel: 1,
   nitroActive: false,
   clock: "06:00",
+  navTarget: LANDMARKS[0], // VENU, matches the original's default navTarget
+  waypointDist: 0,
+  waypointDeg: 0,
+  mapOpen: false,
   setHud: (speedKmh, grounded) => set({ speedKmh, grounded }),
   toggleActive: () =>
     set((s) => ({ active: CYCLE[(CYCLE.indexOf(s.active) + 1) % CYCLE.length] })),
@@ -58,5 +70,8 @@ export const useHudStore = create<HudState>((set, get) => ({
   },
   setNitro: (fuel, active) => set({ nitroFuel: fuel, nitroActive: active }),
   setClock: (c) => set({ clock: c }),
+  setWaypoint: (dist, deg) => set({ waypointDist: dist, waypointDeg: deg }),
+  setNavTarget: (l) => set({ navTarget: l, mapOpen: false }),
+  setMapOpen: (open) => set({ mapOpen: open }),
   vehicleName: () => NAMES[get().active],
 }));

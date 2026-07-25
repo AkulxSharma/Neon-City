@@ -12,6 +12,8 @@ import { Boat } from "@/components/Boat";
 import { Bike } from "@/components/Bike";
 import { Traffic } from "@/components/Traffic";
 import { AudioEngine } from "@/components/AudioEngine";
+import { LandmarkMarkers } from "@/components/LandmarkMarkers";
+import { WaypointTracker } from "@/components/WaypointTracker";
 import { HUD } from "@/components/HUD";
 import { useHudStore } from "@/lib/hudStore";
 import { initAudio, toggleMute, setMuted } from "@/lib/audio";
@@ -53,6 +55,10 @@ export default function Game() {
         hud.cycleCamMode();
       } else if (e.code === "KeyM") {
         hud.showMsg(toggleMute() ? "MUTED" : "UNMUTED");
+      } else if (e.code === "KeyG") {
+        hud.setMapOpen(!hud.mapOpen);
+      } else if (e.code === "Escape") {
+        hud.setMapOpen(false);
       }
     };
     const onClick = () => initAudio();
@@ -70,6 +76,8 @@ export default function Game() {
         <Suspense fallback={null}>
           <SkyCycle />
           <AudioEngine />
+          <WaypointTracker />
+          <LandmarkMarkers />
           <Physics gravity={[0, -9.81, 0]}>
             <City />
             <Water />

@@ -24,10 +24,12 @@ npm run dev   # http://localhost:3000
 
 WASD/arrows to drive, Space to handbrake, **SHIFT** for nitro (car only), **B**
 to cycle control between car, bike, and boat, **C** (or the on-screen buttons)
-to cycle camera CHASE/COCKPIT/HOOD/CINE. A few self-driving traffic cars
-patrol the arena on their own. The city now streams in real chunks (roads,
-seeded buildings) as you drive, plus a water area the boat floats on — see
-Milestones for exactly what's real
+to cycle camera CHASE/COCKPIT/HOOD/CINE, **M** to mute, **G** (or click the
+minimap) to open the map and pick a destination — the waypoint arrow up top
+points at it. A few self-driving traffic cars patrol the arena on their own.
+The city now streams in real chunks (roads, seeded buildings) as you drive,
+plus a water area the boat floats on, plus 9 landmark beacons at the
+original's exact coordinates — see Milestones for exactly what's real
 vs. placeholder.
 
 ## Migration phases
@@ -39,7 +41,7 @@ vs. placeholder.
 | 2 | **Validation vehicle**: one car, arcade physics ported from the original game, collision via Rapier's `KinematicCharacterController` | ✅ done — feel holds up, see below |
 | 3 | Remaining vehicle types (bikes, boats w/ buoyancy), traffic AI | ✅ done (basic traffic; original's road-grid/lights/yielding still to come) |
 | 4 | HUD → real React components: title/clock, speedo, nitro, hint/msg, camsel, controls legend, vignette, minimap | ✅ done (waypoint/big-map/touch-controls still need a landmark system — see Milestone 6) |
-| 5 | Audio, save/load, club interior, police convoy, boat-swap, police station | ◐ audio + save/load done (Milestone 7); club/police/landmarks still open |
+| 5 | Audio, save/load, landmarks/waypoint/map, club interior, police convoy, boat-swap, police station | ◐ audio, save/load, landmarks done (Milestones 7-8); club/police still open |
 | 6 | Instance repeated props, perf pass, deploy | ⏳ not started |
 
 ## Milestone 1 — Phase 0–2: physics validation (2026-07-24)
@@ -395,12 +397,62 @@ active/camMode/mute — global, rarely-changing — get applied once in a
 (save-aware spawn position, `vehicleState` writes), `components/Game.tsx`
 (audio init, autosave wiring, M key), `components/HUD.tsx` (controls legend).
 
+## Milestone 8 — landmarks, waypoint, big map (2026-07-24)
+
+**Goal:** unblock everything that was waiting on "there's no landmark
+system yet" — the waypoint arrow, the destination map screen, and (next)
+real destinations for the club door and police convoy to target.
+
+**Exact coordinates, ported structures deferred.** `lib/landmarks.ts` carries
+over the original's `LANDMARKS` array verbatim — same 9 names, same x/z, same
+colors (VENU, AUTO YARD, CENTRAL PARK, NEON STADIUM, SKY TOWER, FOUNTAIN
+PLAZA, HARBOR LAKE, EAST MARINA, POLICE HARBOR). What's *not* ported yet is
+each landmark's actual structure (the original builds a real park/stadium/
+tower/plaza/club/marina per landmark); for now each is a colored beacon pillar
++ billboarded name label (`components/LandmarkMarkers.tsx`, using drei's
+`Text`/`Billboard` — no custom font-texture pipeline needed). This is
+deliberate sequencing, not corner-cutting: the coordinates are locked in now
+so club/police-station work (next) slots into the *same* spots rather than
+picking new ones later. Markers are always rendered, independent of chunk
+streaming — same as the original's persistent top-level sign group — so
+they're visible from a distance the way the real landmarks are, not gated
+behind `City.tsx`'s streaming radius. `City.tsx` also now skips random
+buildings in any landmark's chunk (extending the existing spawn-block
+exemption to a `LANDMARK_CHUNKS` set), so nothing spawns on top of a beacon.
+
+**Waypoint uses the original's exact bearing math.** `components/WaypointTracker.tsx`
+computes `along`/`side` relative to the player's own heading (not compass
+north) via the same `atan2` formula as the original, so the arrow always
+points the right screen-relative direction regardless of which way the
+camera/vehicle is facing. Runs inside `<Canvas>` (needs `useFrame`) and
+writes into `hudStore`, which the DOM-side `#waypoint` element (outside the
+canvas) reads reactively.
+
+**Big map is a fixed full-world view, not player-centred/pannable like the
+original.** `components/BigMap.tsx` shows all 9 landmarks and the player
+marker inside one static viewport sized to cover every landmark with margin.
+Simplified deliberately: the destination list (`#maplist`, sorted by live
+distance) already covers selection, so a pannable/zoomable canvas wasn't
+worth building yet — noted here as a real simplification, not hidden. `G`
+or clicking the minimap opens it; `Escape`, the close button, or a click
+outside the card closes it.
+
+**Files added/changed:** `lib/landmarks.ts`, `components/LandmarkMarkers.tsx`,
+`components/WaypointTracker.tsx`, `components/BigMap.tsx` (new); `lib/hudStore.ts`
+(`navTarget`/`waypointDist`/`waypointDeg`/`mapOpen`), `components/City.tsx`
+(`LANDMARK_CHUNKS` exemption), `components/HUD.tsx` (`#waypoint`/`#maphint`,
+minimap click, mounts `BigMap`), `components/Game.tsx` (`G`/`Escape` keys),
+`app/globals.css` (`#waypoint`/`#mapscreen`/`#bigmap`/`#maplist`/`#mapclose`
+rules, ported from the original).
+
 ## Next up
 
-Still open from "everything, no compromise": club interior, the police
-station/convoy/boat-swap/dock-collision work from the original's own
-late-session milestones, and the landmark system `#waypoint`/`#mapscreen`
-need (which also unlocks a real destination for the police-convoy and
-club-door mechanics). Landmarks first, since the others depend on it — then
-club, then police. Also still owed: visually confirming the `dpr={1}` render
-fix from Milestone 5 — haven't had a clean browser-automation session since.
+Landmarks unblock the rest: club interior (walk-in room at VENU, same
+door-proximity mechanic as the original) and the police station/convoy/
+boat-swap/dock-collision work from the original's own late-session
+milestones — both now have real coordinates to build at instead of picking
+new ones. Club first since it's self-contained; police next since it depends
+on the boat-collision work already done in the original index.html (dock
+solidity, convoy hull-matching) needing a genuine port, not a re-derivation.
+Also still owed: visually confirming the `dpr={1}` render fix from
+Milestone 5 — haven't had a clean browser-automation session since.
