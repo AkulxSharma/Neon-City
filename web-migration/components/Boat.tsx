@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
@@ -8,6 +8,8 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BOAT_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { vehicleState } from "@/lib/vehicleState";
+import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { WATER_LEVEL } from "@/components/Water";
 
@@ -23,8 +25,9 @@ export function Boat() {
   const keys = useKeyboard();
   const { camera } = useThree();
 
-  const boat = useRef<CarState>({ h: Math.PI, speed: 0, vLat: 0, steerAng: 0 });
-  const pos = useRef({ x: 40, z: 0 });
+  const [save] = useState(() => loadSave()?.vehicles.boat ?? null);
+  const boat = useRef<CarState>({ h: save?.h ?? Math.PI, speed: 0, vLat: 0, steerAng: 0 });
+  const pos = useRef({ x: save?.x ?? 40, z: save?.z ?? 0 });
   const camPos = useRef(new THREE.Vector3(30, 5, -10));
   const camLook = useRef(new THREE.Vector3());
 
@@ -62,6 +65,10 @@ export function Boat() {
       .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -heel));
     body.setNextKinematicRotation(q);
 
+    vehicleState.boat.x = pos.current.x;
+    vehicleState.boat.z = pos.current.z;
+    vehicleState.boat.h = boat.current.h;
+
     if (!isActive) return;
     worldState.px = pos.current.x;
     worldState.pz = pos.current.z;
@@ -85,7 +92,7 @@ export function Boat() {
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[40, WATER_LEVEL, 0]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 40, WATER_LEVEL, save?.z ?? 0]}>
       <mesh castShadow>
         <boxGeometry args={[hullSize.x, hullSize.y, hullSize.z]} />
         <meshStandardMaterial color="#e8e2d0" metalness={0.35} roughness={0.34} />

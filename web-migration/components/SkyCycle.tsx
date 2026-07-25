@@ -4,23 +4,22 @@ import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useHudStore } from "@/lib/hudStore";
+import { skyState } from "@/lib/skyState";
+import { loadSave } from "@/lib/saveGame";
 
 // Exact colors from the original index.html (`cDay`/`cNight`/`cDusk`, tick()'s
-// updateDayNight). Kept as a module-level mutable object (not React state) so
-// other components — buildings, neon signs, headlights — can read the current
-// night factor inside their own useFrame without subscribing/re-rendering.
+// updateDayNight).
 const DAY = new THREE.Color(0x7ec4f2);
 const NIGHT = new THREE.Color(0x05070f);
-
-export const skyState = { nightK: 1, hour: 0 };
 
 export function SkyCycle() {
   const { scene } = useThree();
   const sunRef = useRef<THREE.DirectionalLight>(null);
   const ambientRef = useRef<THREE.AmbientLight>(null);
-  // start at night — the original's signature look, and the one every
-  // screenshot in this migration has been judged against
-  const t = useRef(-Math.PI / 2);
+  // start at night by default — the original's signature look, and the one
+  // every screenshot in this migration has been judged against — unless a
+  // save says otherwise
+  const t = useRef(loadSave()?.dayPhase ?? -Math.PI / 2);
 
   // useFrame runs in three.js's render loop, outside React's render cycle —
   // imperatively mutating scene.background/fog here every frame is the
@@ -29,6 +28,7 @@ export function SkyCycle() {
   // eslint-disable-next-line react-hooks/immutability
   useFrame((_, dt) => {
     t.current += dt * 0.015; // one full cycle every ~7 minutes
+    skyState.phase = t.current;
     const dayK = (Math.sin(t.current) + 1) / 2;
     skyState.nightK = 1 - dayK;
     // clock (matches the original's `(6 + dayT*24) % 24`): map the sine phase

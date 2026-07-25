@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { RigidBody, CuboidCollider, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
@@ -8,6 +8,8 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BIKE_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { vehicleState } from "@/lib/vehicleState";
+import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
@@ -26,7 +28,8 @@ export function Bike() {
   const keys = useKeyboard();
   const { camera } = useThree();
 
-  const bike = useRef<CarState>({ h: 0, speed: 0, vLat: 0, steerAng: 0 });
+  const [save] = useState(() => loadSave()?.vehicles.bike ?? null);
+  const bike = useRef<CarState>({ h: save?.h ?? 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
   const camPos = useRef(new THREE.Vector3(-20, 4, -10));
   const camLook = useRef(new THREE.Vector3());
@@ -85,6 +88,10 @@ export function Bike() {
       .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), leanRef.current));
     body.setNextKinematicRotation(q);
 
+    vehicleState.bike.x = nextPos.x;
+    vehicleState.bike.z = nextPos.z;
+    vehicleState.bike.h = bike.current.h;
+
     if (!isActive) return;
     worldState.px = nextPos.x;
     worldState.pz = nextPos.z;
@@ -108,7 +115,7 @@ export function Bike() {
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[-20, 1, 0]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? -20, 1, save?.z ?? 0]}>
       <CuboidCollider ref={colliderRef} args={[bikeBox.x / 2, bikeBox.y / 2, bikeBox.z / 2]} />
       <BikeMesh />
     </RigidBody>

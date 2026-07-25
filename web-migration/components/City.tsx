@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RigidBody } from "@react-three/rapier";
 import * as THREE from "three";
-import { skyState } from "@/components/SkyCycle";
+import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
 
 // Real chunk-streamed city (Milestone 5), replacing the placeholder 7-box

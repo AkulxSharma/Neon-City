@@ -39,7 +39,7 @@ vs. placeholder.
 | 2 | **Validation vehicle**: one car, arcade physics ported from the original game, collision via Rapier's `KinematicCharacterController` | ✅ done — feel holds up, see below |
 | 3 | Remaining vehicle types (bikes, boats w/ buoyancy), traffic AI | ✅ done (basic traffic; original's road-grid/lights/yielding still to come) |
 | 4 | HUD → real React components: title/clock, speedo, nitro, hint/msg, camsel, controls legend, vignette, minimap | ✅ done (waypoint/big-map/touch-controls still need a landmark system — see Milestone 6) |
-| 5 | Audio, save/load, club interior, police convoy, boat-swap, police station | ⏳ not started |
+| 5 | Audio, save/load, club interior, police convoy, boat-swap, police station | ◐ audio + save/load done (Milestone 7); club/police/landmarks still open |
 | 6 | Instance repeated props, perf pass, deploy | ⏳ not started |
 
 ## Milestone 1 — Phase 0–2: physics validation (2026-07-24)
@@ -348,13 +348,59 @@ deferred behind desktop parity, not forgotten).
 nitro), `components/Traffic.tsx` (`trafficPositions` export), `components/City.tsx`
 (hook-order fix).
 
+## Milestone 7 — procedural audio + save/load (2026-07-24)
+
+**Goal:** two more items off the "everything, no compromise" list — the
+original's real audio isn't decoration, and neither is persistence (its own
+comment calls out that losing position on reload was a user complaint that
+got fixed).
+
+**Audio is the original's actual oscillator graph, same numbers.**
+`lib/audio.ts` ports `initAudio()`'s engine voice (sawtooth + square through
+a 420Hz lowpass) and nitro voice (sawtooth + square through an 260Hz/Q0.8
+bandpass) with the exact frequency/gain formulas from the original's audio
+update block — `48+drv*2.4` / `24+drv*1.2` for engine pitch, `0.02+drv*0.0008`
+clamped to 0.06 for engine gain, `0.13` nitro gain with filter frequency
+`220+drv*9`, all smoothed with the same `setTargetAtTime` time constants
+(0.05/0.08). `AudioContext` requires a real user gesture to start, so
+`initAudio()` is called from the first keydown or pointerdown in `Game.tsx`
+(no-ops on every call after the first) rather than needing an explicit
+"click to start" screen. **M** toggles mute (suspends/resumes the context,
+not just gain — matches the original, saves CPU while muted). Engine sound
+is car-only in this build since bikes/boats don't have their own engine
+voice yet in the original either at this stage — a gap to note, not a
+regression.
+
+**Save/load persists per-vehicle position, not just "the player."** The
+original has one `player.veh` that gets swapped; this build has three
+simultaneously-existing vehicles, so `lib/vehicleState.ts` is a new shared
+singleton (same pattern as `skyState`/`worldState`) that all three — not
+just the active one — write their `{x,z,h}` into every frame, so switching
+which vehicle you're driving and then saving doesn't lose the other two's
+position. `lib/saveGame.ts` snapshots `vehicleState` plus active vehicle,
+camera mode, mute, and the day-cycle phase (`skyState.phase`, newly exported
+— pulled `skyState` out of `SkyCycle.tsx` into its own `lib/skyState.ts` to
+avoid a circular import with `saveGame.ts`) to `localStorage`, autosaved
+every 3s and on `beforeunload`, same cadence as the original. Restored two
+different ways depending on what changes how often: vehicle *positions* load
+inside each vehicle's own `useState(() => loadSave()...)` lazy initializer
+(spawns in the right spot on frame one, no load-then-jump), while
+active/camMode/mute — global, rarely-changing — get applied once in a
+`Game.tsx` effect after mount.
+
+**Files added/changed:** `lib/audio.ts`, `lib/saveGame.ts`,
+`lib/vehicleState.ts`, `lib/skyState.ts`, `components/AudioEngine.tsx` (new);
+`components/SkyCycle.tsx` (moved `skyState` out, added `phase`), `components/City.tsx`
+(updated `skyState` import), `components/Car.tsx`/`Bike.tsx`/`Boat.tsx`
+(save-aware spawn position, `vehicleState` writes), `components/Game.tsx`
+(audio init, autosave wiring, M key), `components/HUD.tsx` (controls legend).
+
 ## Next up
 
-On the explicit "don't compromise on anything" instruction: still open from
-the full original feature set (not just UI) — audio, save/load, club
-interior, the police station/convoy/boat-swap work from the original's own
-late-session milestones, and the landmark system that `#waypoint`/`#mapscreen`
-need. That's Phase 5 territory and it's substantial; will keep shipping it in
-the same small-milestone-then-push rhythm rather than batching it into one
-giant change. Also still owed: visually confirming the `dpr={1}` render fix
-from Milestone 5 — haven't had a clean browser-automation session since.
+Still open from "everything, no compromise": club interior, the police
+station/convoy/boat-swap/dock-collision work from the original's own
+late-session milestones, and the landmark system `#waypoint`/`#mapscreen`
+need (which also unlocks a real destination for the police-convoy and
+club-door mechanics). Landmarks first, since the others depend on it — then
+club, then police. Also still owed: visually confirming the `dpr={1}` render
+fix from Milestone 5 — haven't had a clean browser-automation session since.

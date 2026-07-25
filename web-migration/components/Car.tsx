@@ -8,6 +8,8 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, DEFAULT_HANDLING, type CarState, type CarHandling } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { vehicleState } from "@/lib/vehicleState";
+import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
@@ -22,9 +24,12 @@ export function Car() {
   const keys = useKeyboard();
   const { camera } = useThree();
 
+  // one-time impure read (localStorage), same pattern as CarMesh's random color below
+  const [save] = useState(() => loadSave()?.vehicles.car ?? null);
+
   // persistent car state across frames (heading/speed/vLat/steerAng) — mirrors the
   // original game's per-vehicle object, kept in a ref so updating it never re-renders
-  const car = useRef<CarState>({ h: 0, speed: 0, vLat: 0, steerAng: 0 });
+  const car = useRef<CarState>({ h: save?.h ?? 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
   const nitroFuel = useRef(NITRO_MAX);
   const camPos = useRef(new THREE.Vector3(0, 4, -10));
@@ -98,6 +103,10 @@ export function Car() {
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), car.current.h);
     body.setNextKinematicRotation(q);
 
+    vehicleState.car.x = nextPos.x;
+    vehicleState.car.z = nextPos.z;
+    vehicleState.car.h = car.current.h;
+
     if (!isActive) return;
     worldState.px = nextPos.x;
     worldState.pz = nextPos.z;
@@ -121,7 +130,7 @@ export function Car() {
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, 1, 0]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 0, 1, save?.z ?? 0]}>
       <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
       <CarMesh />
     </RigidBody>

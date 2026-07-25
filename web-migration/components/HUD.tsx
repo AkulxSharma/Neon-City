@@ -77,6 +77,8 @@ export function HUD() {
         <b>B</b> switch vehicle
         <br />
         <b>C</b> camera view
+        <br />
+        <b>M</b> mute engine
       </div>
 
       <div id="vig" />

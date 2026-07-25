@@ -11,22 +11,57 @@ import { Car } from "@/components/Car";
 import { Boat } from "@/components/Boat";
 import { Bike } from "@/components/Bike";
 import { Traffic } from "@/components/Traffic";
+import { AudioEngine } from "@/components/AudioEngine";
 import { HUD } from "@/components/HUD";
 import { useHudStore } from "@/lib/hudStore";
+import { initAudio, toggleMute, setMuted } from "@/lib/audio";
+import { loadSave, saveGame } from "@/lib/saveGame";
 
 export default function Game() {
+  // restore active vehicle/camera/mute once at mount — vehicle *positions*
+  // are restored by each vehicle itself (Car/Bike/Boat read loadSave() in
+  // their own lazy useState initializer, so there's no load-then-jump)
+  useEffect(() => {
+    const save = loadSave();
+    if (!save) return;
+    useHudStore.getState().setCamMode(save.camMode);
+    setMuted(save.muted);
+    // don't restore `active` via toggleActive (cycles relative to current);
+    // hudStore's default is "car", so only touch it if the save disagrees
+    if (save.active !== "car") {
+      while (useHudStore.getState().active !== save.active) useHudStore.getState().toggleActive();
+    }
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(saveGame, 3000);
+    window.addEventListener("beforeunload", saveGame);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("beforeunload", saveGame);
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      initAudio(); // no-ops once already initialized; needs a real user gesture, so first key does it
       const hud = useHudStore.getState();
       if (e.code === "KeyB") {
         hud.toggleActive();
         hud.showMsg("SWITCHED TO: " + hud.vehicleName());
       } else if (e.code === "KeyC") {
         hud.cycleCamMode();
+      } else if (e.code === "KeyM") {
+        hud.showMsg(toggleMute() ? "MUTED" : "UNMUTED");
       }
     };
+    const onClick = () => initAudio();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onClick, { once: true });
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onClick);
+    };
   }, []);
 
   return (
@@ -34,6 +69,7 @@ export default function Game() {
       <Canvas shadows dpr={1} camera={{ fov: 65, near: 0.1, far: 1000 }}>
         <Suspense fallback={null}>
           <SkyCycle />
+          <AudioEngine />
           <Physics gravity={[0, -9.81, 0]}>
             <City />
             <Water />
