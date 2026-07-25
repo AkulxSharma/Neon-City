@@ -61,6 +61,19 @@ export const BIKE_HANDLING: CarHandling = {
   dragQ: 0.0016,
 };
 
+// Original's POLICE PURSUIT stats (index.html ~line 6120: "police 83.3 m/s =
+// 300 km/h") — same shape as DEFAULT_HANDLING, faster and grippier.
+export const POLICE_HANDLING: CarHandling = {
+  max: 83.3,
+  accel: 26,
+  grip: 7.5,
+  turnGain: 0.78,
+  steerRamp: 2.6,
+  steerMin: 0.26,
+  drag: 0.4,
+  dragQ: 0.0016,
+};
+
 export interface CarInput {
   forward: boolean;
   back: boolean;

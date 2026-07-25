@@ -1,13 +1,25 @@
 import { create } from "zustand";
 import { LANDMARKS, type Landmark } from "@/lib/landmarks";
 
-export type VehicleKind = "car" | "boat" | "bike";
+export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat";
 export type ActiveMode = VehicleKind | "foot";
 export const CAM_MODES = ["CHASE", "COCKPIT", "HOOD", "CINE"] as const;
 export type CamMode = 0 | 1 | 2 | 3;
 
+// B still only quick-switches the original 3 owned vehicles — policeCar/patrolBoat
+// are parked at the station/marina and reached by walking up + E, same as any
+// other vehicle (see lib/player.ts's mount scan, which is generic over VehicleKind)
 const CYCLE: VehicleKind[] = ["car", "bike", "boat"];
-export const VEHICLE_NAMES: Record<VehicleKind, string> = { car: "CITY SEDAN", bike: "STREET BIKE", boat: "SEA SPRITE" };
+export const VEHICLE_NAMES: Record<VehicleKind, string> = {
+  car: "CITY SEDAN",
+  bike: "STREET BIKE",
+  boat: "SEA SPRITE",
+  policeCar: "POLICE CRUISER",
+  patrolBoat: "HARBOR PATROL",
+};
+// hulls — anything that floats, not just the original "boat". Used wherever a
+// feature needs to exclude/include boats generically (club door, dock walking).
+export const BOAT_KINDS: readonly VehicleKind[] = ["boat", "patrolBoat"];
 
 let msgTimer: ReturnType<typeof setTimeout> | null = null;
 

@@ -8,4 +8,8 @@ export const vehicleState: Record<VehicleKind, { x: number; z: number; h: number
   car: { x: 0, z: 0, h: 0 },
   bike: { x: -20, z: 0, h: 0 },
   boat: { x: 40, z: 0, h: Math.PI },
+  // parked at POLICE HARBOR STATION / the marina dock — see components/PoliceStation.tsx,
+  // components/Marina.tsx, and lib/landmarks.ts's POLICE HARBOR / EAST MARINA coordinates
+  policeCar: { x: 15, z: 45, h: 0 },
+  patrolBoat: { x: 92, z: 62, h: Math.PI / 2 },
 };

@@ -8,11 +8,14 @@ Nothing here is wired back into the original game yet.
 
 **Goal is full look-and-feel parity with the original**, not just matching
 physics. "Feel" (Milestone 1) is done — the driving math is ported verbatim.
-"Look" is in progress (Milestone 3) — bloom, exact colors, and real vehicle
-silhouettes are in; the actual procedural city (buildings-as-real-shapes with
-baked window textures, roads, landmarks, club interior, minimap, HUD chrome)
-is not ported yet and is the bulk of what's left. Read each milestone below
-for exactly what currently matches vs. what's still a placeholder.
+"Look" (bloom, exact colors, real vehicle silhouettes, real building facades
+with baked window textures, roads with lane markings/sidewalks, parks/trees,
+landmarks, club interior, police station/convoy, minimap, HUD chrome) is now
+largely in, through Milestone 12. What's left is mostly named simplifications
+inside otherwise-real systems (the club's crowd/set-dressing, the convoy's
+felony-stop maneuver, instanced-prop variety) rather than whole missing
+systems — read each milestone below for exactly what currently matches vs.
+what's still a documented cut.
 
 ## How to run
 
@@ -41,7 +44,7 @@ vs. placeholder.
 | 2 | **Validation vehicle**: one car, arcade physics ported from the original game, collision via Rapier's `KinematicCharacterController` | ✅ done — feel holds up, see below |
 | 3 | Remaining vehicle types (bikes, boats w/ buoyancy), traffic AI | ✅ done (basic traffic; original's road-grid/lights/yielding still to come) |
 | 4 | HUD → real React components: title/clock, speedo, nitro, hint/msg, camsel, controls legend, vignette, minimap | ✅ done (waypoint/big-map/touch-controls still need a landmark system — see Milestone 6) |
-| 5 | Audio, save/load, landmarks/waypoint/map, club interior, police convoy, boat-swap, police station | ◐ audio, save/load, landmarks done (Milestones 7-8); club/police still open |
+| 5 | Audio, save/load, landmarks/waypoint/map, club interior, police convoy, boat-swap, police station | ✅ done (Milestones 7-11) — club interior itself still simplified, see Milestone 9 |
 | 6 | Instance repeated props, perf pass, deploy | ⏳ not started |
 
 ## Milestone 1 — Phase 0–2: physics validation (2026-07-24)
@@ -579,17 +582,199 @@ allowed through the door), `lib/saveGame.ts` (`SaveData.active: ActiveMode`),
 `toggleActive`), `components/HUD.tsx` (`#speedo` hidden on foot, `E`/jump
 added to the controls legend).
 
+## Milestone 11 — police station, convoy AI, dock collision, boat-swap (2026-07-25)
+
+**Goal:** the "Next up" this milestone inherited, named directly by the
+user. Unlike most of this migration, **this was a pure port with one real
+bug fix along the way**, not new design work — a prior session had already
+built the police/dock/convoy systems for real in the original `index.html`
+(see the
+[boat-physics-and-police-harbor](../learnings/2026-07-24-boat-physics-and-police-harbor.md)
+learnings note).
+
+**Found and fixed: `lib/landmarks.ts`'s `POLICE HARBOR` coordinate was a
+real bug, not a placeholder.** It was still the original's raw, unconverted
+`x:450` — at this build's `CELL=100`/`SHORE_CI=1`, that's deep inside open
+water (unreachable by land), not "one block inland of the marina" like the
+original's own comment describes. Every other landmark got rescaled to
+this build's much smaller coastline back in Milestone 8; this one was
+missed. Relocated to `(0, 50)` — chunk `(0,1)`, one chunk inland of EAST
+MARINA's chunk `(1,1)` — the same *relative* placement the original
+intended, adapted to this build's compact world. Fixing the coordinate
+also automatically pulled the station chunk into `City.tsx`'s existing
+`LANDMARK_CHUNKS` exemption (computed generically from every entry in
+`LANDMARKS`) — no separate exemption code needed.
+
+**Two new mountable vehicles, not a general n-instance fleet.** The
+original has a large `vehicles[]` array (many boardable instances per
+type); this build has always had exactly one fixed instance per
+`VehicleKind`. Rather than rearchitect that for "one more police unit,"
+`VehicleKind` gained two new members (`policeCar`, `patrolBoat`) that slot
+into the exact same pattern as `car`/`bike`/`boat` — own component
+(`PoliceCar.tsx`, near-copy of `Car.tsx`, `POLICE_HANDLING` = the
+original's 83.3 m/s pursuit stats), own `vehicleState`/`VEHICLE_NAMES`
+entry, mountable via the *already-generic* code in `lib/player.ts`/
+`lib/hint.ts` (both iterate `Object.keys(vehicleState)`, so they needed
+zero changes to pick the new kinds up). `BOAT_KINDS` (a new export from
+`hudStore.ts`) replaced the old hardcoded `active === "boat"` check in
+`lib/club.ts` so hull-exclusion from the club door generalizes to both
+boats automatically.
+
+**Police "siren" is implicit, matching the original exactly** — driving
+`policeCar` *is* having your siren on (`hud.active === "policeCar"`), no
+separate toggle key, same as the original's
+`player.veh.userData.siren.kind==='police'` check. `PoliceCar.tsx`'s light
+bar (two flashing red/blue boxes) flashes continuously whether driven or
+parked, matching "looks on duty" at the station.
+
+**Convoy AI extends `Traffic.tsx`, doesn't replace its architecture.** Two
+of its lane-patrol cars are now `police: true`. Every frame each keeps
+computing its ordinary patrol position in the background (even while
+convoying) so dropping out of convoy resumes patrol live instead of
+teleporting back; when `policeCar` is active and a police car comes within
+70 units (the original's exact recruit radius), it "recruits" and instead
+steers toward a slot-based formation target behind the player (`dist =
+slot*10+8`, lateral `±2.8`, the original's exact land-convoy numbers) at a
+capped chase speed. **Deliberately not ported: the felony-stop boxing-in
+maneuver** (original ~line 7466) — a meaningfully bigger state machine
+than a straight follow (surrounding the player's car from multiple angles
+and slowing to box it in), left for later and named explicitly rather than
+silently dropped.
+
+**Dock collision is an upgrade, not a straight port, for land traffic —
+and a straight port for hulls, because it has to be.** The original's pier
+deck is walkable/drivable via a height-lookup hack (`onPier()`) because its
+`collide()` system is 2D-only; `components/Marina.tsx` instead gives the
+deck a real `RigidBody`+`CuboidCollider`, so Car/Bike/Player already climb
+onto it through their existing `KinematicCharacterController` autostep —
+zero new code for land traversal, the same call Milestone 1 made generally.
+Boats are different: `Boat.tsx`/`PatrolBoat.tsx` never query Rapier
+colliders at all (Milestone 2's direct-integration design), so the solid
+deck doesn't stop a hull — `lib/marina.ts`'s `pierPush()` is a verbatim
+port of the original's function (same AABB push-out math, same `r=2.0`),
+called every frame from both boats' position-integration step.
+
+**Boat-swap (E while already in a boat) reuses the mount/dismount E-key
+chain**, not a new key — `lib/boatSwap.ts`'s `boatSwapAction()` slots in
+between `clubDoorAction()` and `toggleVehicleFoot()` in `Game.tsx`'s `E`
+handler (`clubDoorAction() || boatSwapAction() || toggleVehicleFoot()`),
+so swapping into the other hull short-circuits before falling through to
+"dismount to foot." With only two hulls in this build, "the other one"
+needs no search; a third would need the same nearest-scan `lib/player.ts`
+already does for land vehicles.
+
+**Verified, with one caveat.** `tsc --noEmit`/`eslint` clean. A headless
+Chromium session confirmed zero console/page errors across: mounting
+`policeCar` (HUD correctly shows `POLICE CRUISER`, light bar visibly
+flashing, drives at pursuit speed), mounting/driving near the station and
+dock, and swapping directly into `patrolBoat` (HUD correctly shows `HARBOR
+PATROL`). **This sandbox renders at only a few FPS** (SwiftShader
+software GPU — see Milestone 12's independent confirmation of the same
+finding) **too slow to cover the ~70-unit convoy-recruit radius through
+real-time physical driving within a practical test window** — mount/
+physics/naming were verified directly by driving and by jumping
+`hudStore.active` programmatically (still exercises every real component's
+reaction to the state change, just skips the slow physical approach), but
+the convoy formation itself was verified by code review against the
+original's formulas, not by watching it happen on screen. Named honestly
+rather than claimed as confirmed.
+
+**Files added/changed:** `components/PoliceCar.tsx`, `components/
+PoliceStation.tsx`, `components/Marina.tsx`, `components/PatrolBoat.tsx`,
+`lib/marina.ts`, `lib/boatSwap.ts` (new); `lib/hudStore.ts`
+(`policeCar`/`patrolBoat` VehicleKind, `BOAT_KINDS`), `lib/vehicleState.ts`
+(new entries), `lib/carPhysics.ts` (`POLICE_HANDLING`), `lib/club.ts`
+(`BOAT_KINDS`-based exclusion), `lib/landmarks.ts` (POLICE HARBOR
+coordinate fix), `components/Boat.tsx` (`pierPush` hull collision),
+`components/Traffic.tsx` (convoy AI, light bars), `components/Game.tsx`
+(mounts, `E`-key chain, save-restore fix for non-cyclable `ActiveMode`
+values).
+
+## Milestone 12 — real building facades, roads/lane markings, sidewalks, parks & trees (2026-07-25)
+
+**Goal:** close the gap Milestones 3 and 5 both flagged as the single
+biggest remaining one — `City.tsx` was still flat-colored boxes and
+color-strip "roads." The user asked explicitly for real parity here, not
+placeholder fidelity. Built directly from the original's actual
+`buildChunk()`/`facadeMats`/`glassTowerMats`/street-tile code (read in
+full first, not skimmed).
+
+**Roads + sidewalks + lane markings turned out to be one change, not
+three.** The original's own road/sidewalk/curb/crosswalk system isn't
+per-chunk geometry at all — it's a single baked canvas texture
+(`tileTex`, 1024×1024, tiled 16×16) mapped onto one giant ground plane, with
+the curb and lane markings drawn as texture strokes, not raised 3D meshes.
+That's a gift for a chunk-streamed city: one `buildTileTexture()` here
+builds the equivalent (asphalt ring + concrete/grass interior + curb
+stripes + dashed yellow centerline + white edge lines + corner crosswalk
+zebras) as **one** `THREE.CanvasTexture` per variant (`CITY_TILE_TEX`,
+`PARK_TILE_TEX`), built once at module load and reused by every chunk's
+existing ground plane via `map=`. Zero new geometry, zero new colliders —
+the flat ground plane that already existed for physics just got a real
+texture instead of a flat color.
+
+**Building facades**: ported the technique, not the exact pipeline. The
+original bakes wall-color + window-grid + bump into one texture per stone
+tint (8 separate `facadeTexPair()` canvases) plus a shared blue glass
+curtain-wall texture, each paired with a lit-window "glow" map whose
+`emissiveIntensity` is driven by `nightK`, updated on the *materials*,
+globally, once a frame — never per-building. `City.tsx` now does the same:
+one neutral window-grid texture + one warm glow texture for stone facades,
+one blue-tinted grid + glow pair for glass towers (built once, module
+scope), a small fixed palette of materials tinted via `color` reusing
+those same two textures, and `City()`'s own `useFrame` sets
+`emissiveIntensity` on all ~10 shared materials once per frame — replacing
+the old per-`Building` `useFrame`+`ref` (O(buildings) before, O(materials)
+now).
+
+**Parks + trees**: `Chunk`'s existing per-chunk `mulberry32` PRNG now also
+decides `isPark` (`rand() < 0.13`, the original's exact chance), before
+the building-count draw — deterministic and stable across stream-in/out
+exactly like buildings already were. Park chunks get the grass-tinted
+ground texture instead of the sidewalk one, zero random buildings, and 6
+extra trees in a 15–34 unit ring from chunk center. Every non-exempt chunk
+also gets 3 streetside trees near its edges. Trees are a shared
+cylinder-trunk + sphere-crown geometry/material set — no textures, no
+collision (visual dressing only).
+
+**Deliberately cut** (boxes-with-better-materials, matching the original's
+own fidelity level, not exceeding it): per-building UV rescaling on stone
+facades, macro-district zoning, building tiers/AC units/roof antennas
+(that's the roadmap's Phase 6 "instance repeated props," not this ask),
+tree bark/leaf textures, park fountains/benches/sports fields, road
+manholes/oil-stains/cracks, tree collision (would add up to ~225 extra
+static bodies live at `VIEW=2` for scenery — not worth it).
+
+**Verified with a headless Chromium session**: `tsc --noEmit`/`eslint`
+both clean; multiple 15–20+ second drive sessions (plain and
+nitro-boosted) streamed several chunks including a visibly green park
+chunk with trees, zero console/page errors. **Independently tracked down
+the exact `dpr={1}` render-artifact mystery Milestone 5 left open**: the
+hard vertical-split (left half renders normally, right half solid dark)
+still reproduces here; directly probed `devicePixelRatio`/canvas buffer
+size (both correctly `1`/`1280×800`, ruling the `dpr` theory out for real
+this time) and confirmed via `WEBGL_debug_renderer_info` that this
+sandbox's headless Chromium runs on `SwiftShader` — software rendering, no
+real GPU. The artifact is most likely a software-rasterizer/
+`EffectComposer` render-target quirk specific to sandboxed headless
+environments, not an app bug — but still not visually re-confirmed on
+real hardware, the same open item Milestone 5 first left behind, now with
+a concrete lead instead of a guess.
+
+**Files changed:** `components/City.tsx` (facade/glass/tile/tree texture
+builders and materials, `Chunk`'s park logic, simplified `Building`, new
+`Tree`).
+
 ## Next up
 
-Police station/convoy/boat-swap/dock-collision. Unlike everything before
-it, **this is a pure port, not new design work** — a prior session already
-built the real thing in the original `index.html` (see the
-[boat-physics-and-police-harbor](../learnings/2026-07-24-boat-physics-and-police-harbor.md)
-learnings note): `POLICE HARBOR STATION` at chunk `(4,0)` (~line 5909),
-`pierPush()`/`pierColliders` for hull-only dock collision (~line 4120,
-6822), `nearBoatToBoard` for E-to-swap-boats (~line 6846), and a full
-convoy system — recruit-on-siren, felony-stop boxing-in formation, slot-
-based follow distances (~line 7365-7562). Also still owed: visually
-confirming the `dpr={1}` render fix from Milestone 5 in a real browser now
-that Playwright is available in this project (Milestone 10 only covered
-its own feature, not the older backlog item).
+Both of Milestone 10's named blockers are now closed (club fidelity is
+still simplified — see Milestone 9 — but police/convoy/dock is done).
+Remaining, roughly by size: the club interior's own deliberate
+simplifications (Milestone 9 — rigged crowd, bar/couches/poles, exterior
+light beams, all cut for scope, not fidelity-matched yet); the felony-stop
+convoy maneuver named and skipped in Milestone 11; instanced repeated
+props / a perf pass (roadmap Phase 6, `SUMMARY.md`'s own table); and the
+still-unconfirmed `dpr={1}`/`EffectComposer` render artifact, which now
+has a real lead (SwiftShader software rendering) instead of a guess — worth
+a real-hardware check before spending more time theorizing about it in a
+sandbox that can't rule it in or out.

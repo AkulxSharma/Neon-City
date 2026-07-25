@@ -1,5 +1,5 @@
 import { worldState } from "@/lib/worldState";
-import { useHudStore } from "@/lib/hudStore";
+import { useHudStore, BOAT_KINDS } from "@/lib/hudStore";
 import { requestTeleport } from "@/lib/clubTeleport";
 import { requestPlayerTeleport } from "@/lib/playerTeleport";
 import { startClubMusic, stopClubMusic } from "@/lib/audio";
@@ -25,12 +25,13 @@ function teleport(x: number, z: number, h: number) {
 // Ported from the original's clubDoorAction() — same squared-distance
 // thresholds. The original only lets you through the door on foot
 // (player.onFoot); this build additionally allows driving straight in on
-// the car or bike (an addition, not in the original) since the door was
-// built before on-foot mode existed and there's no reason to take the
-// shortcut away now. Boat still excluded — it can't reach the door.
+// any land vehicle (car/bike/police cruiser — an addition, not in the
+// original) since the door was built before on-foot mode existed and
+// there's no reason to take the shortcut away now. Hulls still excluded —
+// no boat can reach the door.
 export function clubDoorAction(): boolean {
   const hud = useHudStore.getState();
-  if (hud.active === "boat") return false;
+  if ((BOAT_KINDS as readonly string[]).includes(hud.active)) return false;
   if (hud.inClub) {
     const dx = worldState.px - DOOR_IN.x;
     const dz = worldState.pz - DOOR_IN.z;

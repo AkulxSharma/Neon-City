@@ -23,6 +23,13 @@ import { initAudio, toggleMute, setMuted } from "@/lib/audio";
 import { loadSave, saveGame } from "@/lib/saveGame";
 import { clubDoorAction } from "@/lib/club";
 import { toggleVehicleFoot } from "@/lib/player";
+import { boatSwapAction } from "@/lib/boatSwap";
+import { PoliceCar } from "@/components/PoliceCar";
+import { PatrolBoat } from "@/components/PatrolBoat";
+import { PoliceStation } from "@/components/PoliceStation";
+import { Marina } from "@/components/Marina";
+
+const CYCLABLE = new Set(["car", "bike", "boat"]);
 
 export default function Game() {
   // restore active vehicle/camera/mute once at mount — vehicle *positions*
@@ -34,10 +41,11 @@ export default function Game() {
     useHudStore.getState().setCamMode(save.camMode);
     setMuted(save.muted);
     // don't restore `active` via toggleActive (cycles relative to current, and
-    // can't reach "foot" at all — see hudStore.toggleActive's no-op-on-foot
-    // guard); hudStore's default is "car", so only touch it if the save disagrees
-    if (save.active === "foot") {
-      useHudStore.getState().setActive("foot");
+    // can only ever reach car/bike/boat — see hudStore.toggleActive's no-op-on-foot
+    // guard and its CYCLE array, which policeCar/patrolBoat/foot are deliberately
+    // outside of); hudStore's default is "car", so only touch it if the save disagrees
+    if (!CYCLABLE.has(save.active)) {
+      useHudStore.getState().setActive(save.active);
     } else if (save.active !== "car") {
       while (useHudStore.getState().active !== save.active) useHudStore.getState().toggleActive();
     }
@@ -57,7 +65,7 @@ export default function Game() {
       initAudio(); // no-ops once already initialized; needs a real user gesture, so first key does it
       const hud = useHudStore.getState();
       if (e.code === "KeyE") {
-        if (!clubDoorAction()) toggleVehicleFoot();
+        if (!clubDoorAction() && !boatSwapAction()) toggleVehicleFoot();
       } else if (e.code === "KeyB") {
         hud.toggleActive();
         hud.showMsg("SWITCHED TO: " + hud.vehicleName());
@@ -94,6 +102,10 @@ export default function Game() {
             <Car />
             <Boat />
             <Bike />
+            <PoliceCar />
+            <PatrolBoat />
+            <PoliceStation />
+            <Marina />
             <Traffic />
             <Player />
             <Club />
