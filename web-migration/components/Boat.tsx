@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BOAT_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
+import { worldState } from "@/lib/worldState";
 import { WATER_LEVEL } from "@/components/Water";
 
 // A hull has no floor to snap to, so unlike Car.tsx this doesn't use Rapier's
@@ -61,6 +62,8 @@ export function Boat() {
     body.setNextKinematicRotation(q);
 
     if (!isActive) return;
+    worldState.px = pos.current.x;
+    worldState.pz = pos.current.z;
 
     const dir = new THREE.Vector3(Math.sin(boat.current.h), 0, Math.cos(boat.current.h));
     const targetCamPos = new THREE.Vector3(

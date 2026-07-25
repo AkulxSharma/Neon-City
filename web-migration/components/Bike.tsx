@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BIKE_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
+import { worldState } from "@/lib/worldState";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
@@ -84,6 +85,8 @@ export function Bike() {
     body.setNextKinematicRotation(q);
 
     if (!isActive) return;
+    worldState.px = nextPos.x;
+    worldState.pz = nextPos.z;
 
     const dir = new THREE.Vector3(Math.sin(bike.current.h), 0, Math.cos(bike.current.h));
     const targetCamPos = new THREE.Vector3(nextPos.x - dir.x * 6, nextPos.y + 2.8, nextPos.z - dir.z * 6);

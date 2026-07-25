@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, DEFAULT_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
+import { worldState } from "@/lib/worldState";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12; // m/s^2 fed into the character controller so it stays snapped to the ground
@@ -82,6 +83,8 @@ export function Car() {
     body.setNextKinematicRotation(q);
 
     if (!isActive) return;
+    worldState.px = nextPos.x;
+    worldState.pz = nextPos.z;
 
     // chase camera — same lerp-follow shape as the original game's camPos/camLook
     const dir = new THREE.Vector3(Math.sin(car.current.h), 0, Math.cos(car.current.h));

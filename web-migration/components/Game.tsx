@@ -5,7 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { SkyCycle } from "@/components/SkyCycle";
-import { World } from "@/components/World";
+import { City } from "@/components/City";
 import { Water } from "@/components/Water";
 import { Car } from "@/components/Car";
 import { Boat } from "@/components/Boat";
@@ -25,11 +25,11 @@ export default function Game() {
 
   return (
     <div style={{ position: "fixed", inset: 0 }}>
-      <Canvas shadows camera={{ fov: 65, near: 0.1, far: 1000 }}>
+      <Canvas shadows dpr={1} camera={{ fov: 65, near: 0.1, far: 1000 }}>
         <Suspense fallback={null}>
           <SkyCycle />
           <Physics gravity={[0, -9.81, 0]}>
-            <World />
+            <City />
             <Water />
             <Car />
             <Boat />
