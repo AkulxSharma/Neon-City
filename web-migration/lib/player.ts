@@ -38,5 +38,6 @@ export function toggleVehicleFoot(): boolean {
     requestPlayerTeleport(sx, sz, v.h);
     hud.setActive("foot");
     hud.showMsg("ON FOOT");
+    return true;
   }
 }
