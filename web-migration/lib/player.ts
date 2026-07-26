@@ -27,9 +27,10 @@ export function toggleVehicleFoot(): boolean {
         best = k;
       }
     });
-    if (!best) return;
+    if (!best) return false;
     hud.setActive(best);
     hud.showMsg("DRIVE: " + useHudStore.getState().vehicleName());
+    return true;
   } else {
     const v = vehicleState[hud.active as VehicleKind];
     const sx = v.x + Math.cos(v.h) * 2.4;
