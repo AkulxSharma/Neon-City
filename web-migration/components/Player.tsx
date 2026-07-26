@@ -84,6 +84,18 @@ export function Player() {
       worldState.heading = playerTeleport.h;
     }
 
+    // Take the walking collider OUT of the world while riding. It used to stay
+    // behind as an invisible obstacle standing wherever you mounted — mostly
+    // unnoticed, because you approach a parked car from the side and end up
+    // outside its 1.85x4.6 box. lib/steal.ts breaks that assumption: it moves
+    // the car so its CENTRE lands on the NPC's, and the natural way to steal is
+    // to stand in the lane and let the car brake for you, so the collider ends
+    // up INSIDE the car. A character controller that begins a step already
+    // penetrating resolves to ~zero movement — the car simply won't drive.
+    // Dismount re-enables it, and player.ts's teleport has already placed the
+    // body beside the vehicle by then.
+    if (collider.isEnabled() !== isActive) collider.setEnabled(isActive);
+
     if (!isActive) return;
     const d = Math.min(dt, 0.05);
     const k = keys.current;
