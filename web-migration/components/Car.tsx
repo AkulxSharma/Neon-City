@@ -186,8 +186,15 @@ export function Car() {
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 0, 1, save?.z ?? 0]}>
-      <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 0, RIDE_HEIGHT, save?.z ?? 0]}>
+      {/* Dropped so the collider's BOTTOM face lands on the tyre contact patch
+          rather than on the mesh origin. Centred, snapToGround parked the
+          chassis at half the box height (0.65) and buried the car 0.33m. */}
+      <CuboidCollider
+        ref={colliderRef}
+        args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]}
+        position={[0, carBox.y / 2 - RIDE_HEIGHT, 0]}
+      />
       <CarMesh />
     </RigidBody>
   );
