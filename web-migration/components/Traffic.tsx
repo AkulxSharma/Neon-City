@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { CarMesh } from "@/components/Car";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { vehicleState } from "@/lib/vehicleState";
 
 // Basic traffic AI (Phase 3, part of Milestone 4): a handful of self-driving
 // cars patrolling straight lanes. Deliberately not the original's full
@@ -69,6 +70,24 @@ export function Traffic() {
 
 const RECRUIT_RADIUS2 = 70 * 70; // matches the original's d2<70*70 land-convoy recruit check
 
+const STOP_DISTANCE = 7; // ahead-of-car braking gap — city sedan is 4.6 long, this clears it plus a margin
+const LANE_HALF_WIDTH = 2.2; // car is 1.85 wide; catches a car parked slightly off-centre in the lane too
+
+// Real vehicle world positions to treat as obstacles — vehicleState.car/bike/
+// policeCar are kept live every frame by their own components regardless of
+// which one is actually active (a parked-and-abandoned car still updates
+// its own x/z), so this also works if the player gets out and walks away.
+function laneBlocked(lane: Lane, nextPos: number, dir: number): boolean {
+  for (const v of [vehicleState.car, vehicleState.bike, vehicleState.policeCar]) {
+    const along = lane.axis === "x" ? v.x : v.z;
+    const across = lane.axis === "x" ? v.z : v.x;
+    if (Math.abs(across - lane.lane) > LANE_HALF_WIDTH) continue; // not in this lane
+    const gap = along - nextPos; // signed distance from where we're about to be
+    if (gap * dir > 0 && Math.abs(gap) < STOP_DISTANCE) return true; // only stop for what's ahead, not what's already behind
+  }
+  return false;
+}
+
 function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: number }) {
   const bodyRef = useRef<RapierRigidBody>(null);
   const pos = useRef((lane.min + lane.max) / 2 + seed * 7);
@@ -84,14 +103,22 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
 
     // background lane math always advances, even while convoying, so dropping
     // out of the convoy resumes patrol from a live position instead of
-    // teleporting back to wherever the lane loop was left off
-    pos.current += lane.speed * dir.current * d;
-    if (pos.current > lane.max) {
-      pos.current = lane.max;
-      dir.current = -1;
-    } else if (pos.current < lane.min) {
-      pos.current = lane.min;
-      dir.current = 1;
+    // teleporting back to wherever the lane loop was left off — UNLESS a real
+    // vehicle (parked or otherwise) is sitting in the way: traffic cars are
+    // kinematic and driven purely by this scripted position, with no
+    // collider (Rapier never resolves kinematic-vs-kinematic overlap), so
+    // without this check they'd drive straight through a parked car instead
+    // of stopping short of it.
+    const nextPos = pos.current + lane.speed * dir.current * d;
+    if (!laneBlocked(lane, nextPos, dir.current)) {
+      pos.current = nextPos;
+      if (pos.current > lane.max) {
+        pos.current = lane.max;
+        dir.current = -1;
+      } else if (pos.current < lane.min) {
+        pos.current = lane.min;
+        dir.current = 1;
+      }
     }
 
     const laneX = lane.axis === "x" ? pos.current : lane.lane;

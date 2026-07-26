@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RigidBody, CylinderCollider } from "@react-three/rapier";
-import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
@@ -468,7 +467,8 @@ const RESIDENTIAL_MATS = [
 const ROOF_HOUSE_MATS = ["#7a3b2e", "#5a4a3a", "#4a3a2a", "#3a3f45"].map(
   (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.8 }),
 );
-const SIGN_MATS = ["#ff3fd6", "#2fe9ff", "#ffb23f", "#3fff8f"].map((color) => new THREE.MeshBasicMaterial({ color }));
+const SIGN_TINTS = ["#ff3fd6", "#2fe9ff", "#ffb23f", "#3fff8f"];
+const SIGN_MATS = SIGN_TINTS.map((color) => new THREE.MeshBasicMaterial({ color }));
 const AC_UNIT_MAT = new THREE.MeshStandardMaterial({ color: "#4a4e58", roughness: 0.6, metalness: 0.3 });
 const ANTENNA_MAT = new THREE.MeshStandardMaterial({ color: "#2a2d34", roughness: 0.5, metalness: 0.6 });
 // dark glossy glass double-door + a thin canopy overhang — every tower/
@@ -822,6 +822,7 @@ function ApartmentBuilding({ spec: { kind, x, z, w, d, h, matIdx } }: { spec: Bu
       {faceWindows(z + d / 2 + 0.03, 1)}
       {faceWindows(z - d / 2 - 0.03, -1)}
       <Entrance x={x} z={z} d={d} w={w} />
+      <SideGraffiti x={x} z={z} w={w} d={d} h={h} />
     </group>
   );
 }
@@ -960,21 +961,193 @@ const SHOP_TYPES: { name: string; category: ShopCategory }[] = [
 const GARAGE_MAT = new THREE.MeshStandardMaterial({ color: "#8a8578", roughness: 0.85 });
 const GARAGE_INTERIOR_MAT = new THREE.MeshStandardMaterial({ color: "#26241f", roughness: 0.9 });
 
-// shared sign board + name, glued flat to the wall (not a <Billboard> — that
-// rotates to always face the camera while the board stays fixed to the wall,
-// so from any angle but dead-on the two visibly drift apart)
-function ShopSign({ x, y, z, w, colorIdx, name }: { x: number; y: number; z: number; w: number; colorIdx: number; name: string }) {
-  const signMat = SIGN_MATS[colorIdx];
-  const boardW = Math.min(w * 0.8, 8);
+// Baked poster texture per shop (name + a simple category icon + a worn
+// border), not a flat colour box with 3D text floating in front of it — a
+// real shop sign is one printed/painted graphic, not two separate objects.
+// Cached by name so two shops that rolled the same business only bake it
+// once; canvas work only ever runs client-side (module is "use client").
+// A handful of baked spray-paint decals (transparent background, only the
+// strokes painted) — real city grit, not every wall being the same clean
+// paint job. Generated once at module load, reused everywhere via SideGraffiti.
+function makeGraffitiTexture(): THREE.CanvasTexture {
+  const size = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d")!;
+  const colors = ["#ff3fd6", "#2fe9ff", "#ffb23f", "#3fff8f", "#ff5a3c", "#b06bff"];
+  const strokes = 3 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < strokes; i++) {
+    g.strokeStyle = colors[Math.floor(Math.random() * colors.length)];
+    g.lineWidth = 6 + Math.random() * 14;
+    g.lineCap = "round";
+    g.beginPath();
+    let x = Math.random() * size,
+      y = Math.random() * size;
+    g.moveTo(x, y);
+    for (let s = 0; s < 3; s++) {
+      x = Math.max(0, Math.min(size, x + (Math.random() - 0.5) * 140));
+      y = Math.max(0, Math.min(size, y + (Math.random() - 0.5) * 140));
+      g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  // a scrawled tag-like signature along the bottom
+  g.strokeStyle = colors[Math.floor(Math.random() * colors.length)];
+  g.lineWidth = 4;
+  g.beginPath();
+  let tx = size * 0.15,
+    ty = size * 0.75;
+  g.moveTo(tx, ty);
+  for (let i = 0; i < 6; i++) {
+    tx += size * 0.12;
+    ty += (Math.random() - 0.5) * 40;
+    g.lineTo(tx, ty);
+  }
+  g.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const GRAFFITI_TEXTURES = Array.from({ length: 4 }, () => makeGraffitiTexture());
+
+// A random-looking (but position-hashed, so stable across re-renders) tag on
+// a building's SIDE wall — houses/apartments/shops only draw detail on their
+// front face, so the side is always clean/available for this. ~1 in 4 or 5
+// buildings gets one, not every single one.
+function SideGraffiti({ x, z, w, d, h, seed = 0 }: { x: number; z: number; w: number; d: number; h: number; seed?: number }) {
+  if (hash2(x * 13.7 + seed, z * 9.3) > 0.22) return null;
+  const tex = GRAFFITI_TEXTURES[Math.floor(hash2(x * 3.3 + seed, z * 5.1) * GRAFFITI_TEXTURES.length)];
+  const side = hash2(x * 4.4 + seed, z * 7.7) < 0.5 ? -1 : 1;
+  const size = Math.min(d, h) * 0.5;
+  const oz = (hash2(x * 5.5 + seed, z * 8.8) - 0.5) * d * 0.4;
+  const oy = Math.min(h * 0.35, size * 0.5 + 0.3);
   return (
-    <>
-      <mesh position={[x, y, z]} material={signMat}>
-        <boxGeometry args={[boardW, 0.6, 0.08]} />
-      </mesh>
-      <Text position={[x, y, z + 0.05]} fontSize={Math.min(0.34, (boardW * 0.88) / (name.length * 0.62))} color="#0a0a0c" anchorX="center" anchorY="middle">
-        {name}
-      </Text>
-    </>
+    <mesh position={[x + side * (w / 2 + 0.03), oy, z + oz]} rotation={[0, side > 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
+      <planeGeometry args={[size, size * 0.7]} />
+      <meshBasicMaterial map={tex} transparent toneMapped={false} />
+    </mesh>
+  );
+}
+
+const posterCache = new Map<string, THREE.CanvasTexture>();
+function drawCategoryIcon(g: CanvasRenderingContext2D, category: ShopCategory, cx: number, cy: number, r: number) {
+  g.strokeStyle = "#0a0a0c";
+  g.fillStyle = "#0a0a0c";
+  g.lineWidth = r * 0.16;
+  g.lineCap = "round";
+  if (category === "garage") {
+    // wrench
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(-Math.PI / 4);
+    g.beginPath();
+    g.moveTo(-r * 0.8, 0);
+    g.lineTo(r * 0.5, 0);
+    g.stroke();
+    g.beginPath();
+    g.arc(-r * 0.8, 0, r * 0.32, 0.6, Math.PI * 2 - 0.6);
+    g.stroke();
+    g.beginPath();
+    g.arc(r * 0.65, 0, r * 0.28, 0, Math.PI * 2);
+    g.stroke();
+    g.restore();
+  } else if (category === "cafe") {
+    // cup + steam
+    g.beginPath();
+    g.moveTo(cx - r * 0.5, cy - r * 0.1);
+    g.lineTo(cx - r * 0.4, cy + r * 0.6);
+    g.lineTo(cx + r * 0.4, cy + r * 0.6);
+    g.lineTo(cx + r * 0.5, cy - r * 0.1);
+    g.closePath();
+    g.stroke();
+    g.beginPath();
+    g.arc(cx + r * 0.55, cy + r * 0.05, r * 0.22, -0.8, 0.8);
+    g.stroke();
+    for (const dx of [-0.2, 0.2]) {
+      g.beginPath();
+      g.moveTo(cx + dx * r, cy - r * 0.3);
+      g.quadraticCurveTo(cx + dx * r - r * 0.15, cy - r * 0.6, cx + dx * r, cy - r * 0.85);
+      g.stroke();
+    }
+  } else {
+    // retail — a simple shopping bag
+    g.beginPath();
+    g.moveTo(cx - r * 0.5, cy - r * 0.3);
+    g.lineTo(cx - r * 0.6, cy + r * 0.7);
+    g.lineTo(cx + r * 0.6, cy + r * 0.7);
+    g.lineTo(cx + r * 0.5, cy - r * 0.3);
+    g.closePath();
+    g.stroke();
+    g.beginPath();
+    g.arc(cx, cy - r * 0.35, r * 0.3, Math.PI, 0);
+    g.stroke();
+  }
+}
+function getPosterTexture(name: string, category: ShopCategory, accent: string): THREE.CanvasTexture {
+  const key = `${name}|${category}|${accent}`;
+  const cached = posterCache.get(key);
+  if (cached) return cached;
+  const w = 512,
+    h = 256;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  const grad = g.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, accent);
+  grad.addColorStop(1, "#0000"); // transparent fade handled below via solid fill first
+  g.fillStyle = accent;
+  g.fillRect(0, 0, w, h);
+  // weathering: soft dark speckle so it reads as a worn painted sign, not a flat vector
+  for (let i = 0; i < 500; i++) {
+    g.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`;
+    g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+  }
+  g.strokeStyle = "rgba(10,10,12,0.85)";
+  g.lineWidth = 10;
+  g.strokeRect(5, 5, w - 10, h - 10);
+  drawCategoryIcon(g, category, w * 0.16, h * 0.5, h * 0.3);
+  g.font = "bold 64px system-ui, Arial, sans-serif";
+  g.fillStyle = "#0a0a0c";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  let fontSize = 64;
+  while (g.measureText(name).width > w * 0.62 && fontSize > 24) {
+    fontSize -= 4;
+    g.font = `bold ${fontSize}px system-ui, Arial, sans-serif`;
+  }
+  g.fillText(name, w * 0.6, h * 0.5);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  posterCache.set(key, tex);
+  return tex;
+}
+
+function ShopSign({
+  x,
+  y,
+  z,
+  w,
+  colorIdx,
+  name,
+  category,
+}: {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  colorIdx: number;
+  name: string;
+  category: ShopCategory;
+}) {
+  const boardW = Math.min(w * 0.8, 8);
+  const boardH = boardW * 0.5;
+  const tex = useMemo(() => getPosterTexture(name, category, SIGN_TINTS[colorIdx % SIGN_TINTS.length]), [name, category, colorIdx]);
+  return (
+    <mesh position={[x, y, z]}>
+      <planeGeometry args={[boardW, boardH]} />
+      <meshBasicMaterial map={tex} toneMapped={false} />
+    </mesh>
   );
 }
 
@@ -1011,7 +1184,7 @@ function ShopBuilding({ spec: { x, z, w, d, h, colorIdx } }: { spec: BuildingSpe
         <mesh position={[x, h * 0.4, backCz + backD / 2 + 0.05]} material={GARAGE_INTERIOR_MAT}>
           <boxGeometry args={[w * 0.94, h * 0.8, 0.1]} />
         </mesh>
-        <ShopSign x={x} y={h + 0.4} z={z + d / 2 + 0.05} w={w} colorIdx={colorIdx} name={name} />
+        <ShopSign x={x} y={h + 0.4} z={z + d / 2 + 0.05} w={w} colorIdx={colorIdx} name={name} category={category} />
       </group>
     );
   }
@@ -1036,7 +1209,8 @@ function ShopBuilding({ spec: { x, z, w, d, h, colorIdx } }: { spec: BuildingSpe
           <boxGeometry args={[w * 0.86, 0.08, 1.1]} />
         </mesh>
       )}
-      <ShopSign x={x} y={storefrontH + 0.5} z={signZ} w={w} colorIdx={colorIdx} name={name} />
+      <ShopSign x={x} y={storefrontH + 0.5} z={signZ} w={w} colorIdx={colorIdx} name={name} category={category} />
+      <SideGraffiti x={x} z={z} w={w} d={d} h={h} seed={1} />
     </group>
   );
 }
@@ -1127,6 +1301,7 @@ function HouseBuilding({ spec: { x, z, w, d, h, colorIdx, groupX, groupZ } }: { 
           ))}
         </>
       )}
+      <SideGraffiti x={x} z={z} w={w} d={d} h={h} seed={2} />
     </group>
   );
 }

@@ -1003,19 +1003,54 @@ Each zone spawns genuinely different structures, not one shape re-tinted:
 **Files changed:** `components/City.tsx` (districts/zones, `BuildingSpec`,
 8 archetype renderers, shop categories, entrances, shop signage).
 
+## Milestone 17 — traffic collision avoidance, road names, poster signage, graffiti (2026-07-26)
+
+Real bug: traffic cars are kinematic bodies driven purely by scripted lane
+math with no collider at all — Rapier never resolves kinematic-vs-kinematic
+overlap, so a parked player car (or any vehicle) had nothing stopping traffic
+from driving straight through it. Added `laneBlocked()` (`Traffic.tsx`): before
+advancing its scripted position each frame, a traffic car now checks the live
+world position of `vehicleState.car/bike/policeCar` (kept current every frame
+by their own components regardless of which is active, so an abandoned parked
+car still blocks traffic) against its own lane line, and holds if one is ahead
+within a braking distance — direction-aware, so it doesn't stall right after
+clearing a car it just passed.
+
+Added GTA5-style road names to the minimap (`Minimap.tsx`): every road line
+(`x/z ≡ 50 mod 100`) gets a permanent name from two curated Buffalo, NY street
+lists (hashed deterministically off which multiple of `CELL` it falls on, so
+the same street always shows the same name), drawn curved along the street and
+kept upright as the map rotates with heading.
+
+Redesigned shop signage as an actual baked poster (icon + business name +
+worn border on one canvas texture, cached per name/category/colour) instead
+of a flat-coloured box with separate floating 3D text — reads as a printed
+sign, not two independent objects. Added a category icon (wrench/cup/bag) per
+sign. Added spray-paint graffiti decals (`SideGraffiti`) to house/apartment/
+shop side walls — ~1 in 4-5 buildings, hashed per-position so it's stable,
+using 4 baked transparent-background canvas textures.
+
+**Files changed:** `components/Traffic.tsx` (obstacle check), `components/
+Minimap.tsx` (street names), `components/City.tsx` (poster signage, category
+icons, graffiti decals, `SIGN_TINTS` extracted from `SIGN_MATS`).
+
 ## Next up
 
-World-scale, physics, maps, and building variety are now a cohesive whole
-city (Milestones 14-16) on top of the fidelity work in Milestones 1-13.
-Remaining, roughly by size: **verify Milestone 13's ragdoll hit-test live**
-(carried over, still unconfirmed — see its own honest-gap note above); the
-club interior's own deliberate simplifications (Milestone 9); the
-felony-stop convoy maneuver named and skipped in Milestone 11; the car's own
-`speed*=0.9` slowdown on hitting a pedestrian (Milestone 13); a perf pass
-now that Milestone 16 adds meaningfully more meshes per chunk (towers/
-apartments/townhouses each render several sub-meshes — worth profiling
-before adding more per-building detail); the garage bay's side walls/roof
-have no collider by design (visual only, so pulling in never gets stuck) —
-worth a follow-up pass if a player manages to clip through a side wall at
-speed; and the still-unconfirmed `dpr={1}`/`EffectComposer` render artifact
-from Milestone 13, still worth a real-hardware check.
+World-scale, physics, maps, building variety, and city texture/detail
+(Milestones 14-17) are now a cohesive whole city on top of the fidelity work
+in Milestones 1-13. Remaining, roughly by size: **verify Milestone 13's
+ragdoll hit-test live** (carried over, still unconfirmed — see its own
+honest-gap note above); the club interior's own deliberate simplifications
+(Milestone 9); the felony-stop convoy maneuver named and skipped in Milestone
+11; the car's own `speed*=0.9` slowdown on hitting a pedestrian (Milestone
+13); a perf pass now that Milestones 16-17 add meaningfully more meshes per
+chunk (towers/apartments/townhouses/graffiti each render several sub-meshes —
+worth profiling before adding more per-building detail); the garage bay's
+side walls/roof have no collider by design (visual only, so pulling in never
+gets stuck) — worth a follow-up pass if a player manages to clip through a
+side wall at speed; `laneBlocked()` only checks the 3 land vehicles, not
+other traffic cars against each other (they can still overlap one another,
+just not the player) — a real gap if that starts looking bad in practice;
+BigMap.tsx doesn't have street names yet, only Minimap.tsx; and the
+still-unconfirmed `dpr={1}`/`EffectComposer` render artifact from Milestone
+13, still worth a real-hardware check.

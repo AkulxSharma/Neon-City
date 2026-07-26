@@ -34,6 +34,26 @@ function offRoad(v: number) {
 }
 const MARKS = LANDMARKS.map((l) => ({ ...l, mx: offRoad(l.x), mz: offRoad(l.z) }));
 
+// GTA5-style road names, curved along each street on the radar — using real
+// Buffalo, NY street names since that's the city this map is themed after.
+// Every road line (x/z ≡ 50 mod 100) gets a permanent name: its integer
+// street-index (which multiple of CELL it falls on) picks deterministically
+// from one of two lists, so the same street always shows the same name.
+const NS_STREET_NAMES = ["MAIN ST", "DELAWARE AVE", "ELMWOOD AVE", "BAILEY AVE", "GRANT ST", "JEFFERSON AVE", "MICHIGAN AVE", "ASHLAND AVE", "TRANSIT RD", "UNION RD"];
+const EW_STREET_NAMES = ["NIAGARA ST", "GENESEE ST", "HERTEL AVE", "BROADWAY", "SENECA ST", "CHIPPEWA ST", "ALLEN ST", "AMHERST ST", "FILLMORE AVE", "CLINTON ST"];
+function streetName(coord: number, axis: "x" | "z") {
+  const idx = Math.round((coord - 50) / CELL);
+  const arr = axis === "x" ? NS_STREET_NAMES : EW_STREET_NAMES;
+  return arr[((idx % arr.length) + arr.length) % arr.length];
+}
+// keeps a street label right-side-up on screen instead of upside-down,
+// whichever way the road happens to be pointing after the map rotates with heading
+function uprightAngle(a: number) {
+  while (a > Math.PI / 2) a -= Math.PI;
+  while (a < -Math.PI / 2) a += Math.PI;
+  return a;
+}
+
 export function Minimap() {
   const ref = useRef<HTMLCanvasElement>(null);
   const raf = useRef(0);
@@ -106,6 +126,35 @@ export function Minimap() {
         ctx.fill();
       }
       ctx.restore();
+
+      // ---- street names, GTA5-style: one label per visible road line,
+      // curved to follow the street's on-screen direction but always kept
+      // right-side-up (never upside-down as the map rotates with heading) ----
+      ctx.font = `italic 600 ${7.5 * DPR}px system-ui, Arial, sans-serif`;
+      ctx.fillStyle = "rgba(226,230,238,0.8)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const xLineAngle = uprightAngle(Math.atan2(cos, -sin));
+      const zLineAngle = uprightAngle(Math.atan2(sin, cos));
+      for (let x = first(px); x <= px + reach; x += CELL) {
+        if (px + reach >= SHORE_X && x >= SHORE_X) continue; // no street signs out in the water
+        const [sx, sy] = toScreen(x, pz + 35);
+        if (sx < 10 || sx > R - 10 || sy < 10 || sy > R - 10) continue;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(xLineAngle);
+        ctx.fillText(streetName(x, "x"), 0, 0);
+        ctx.restore();
+      }
+      for (let z = first(pz); z <= pz + reach; z += CELL) {
+        const [sx, sy] = toScreen(px + 35, z);
+        if (sx < 10 || sx > R - 10 || sy < 10 || sy > R - 10) continue;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(zLineAngle);
+        ctx.fillText(streetName(z, "z"), 0, 0);
+        ctx.restore();
+      }
 
       // ---- landmarks: dots + labels, drawn upright over the rotated map ----
       ctx.textAlign = "center";
