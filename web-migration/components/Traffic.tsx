@@ -170,14 +170,12 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
     const slot = trafficPositions[index];
 
     // stolen (lib/steal.ts): the player is driving this car now, so the NPC
-    // copy hides and stops being an obstacle. Parked far off-grid rather than
-    // just made invisible — an invisible car still blocks the lane behind it
-    // and still draws a minimap blip.
+    // copy hides and stops moving. Minimap.tsx skips the blip on the same
+    // flag — the slot keeps its last coords rather than being parked at a
+    // sentinel, so nothing downstream has to guard against a junk position.
     if (slot.stolen) {
       if (meshRef.current) meshRef.current.visible = false;
       slot.respawnIn -= d;
-      slot.x = Number.POSITIVE_INFINITY;
-      slot.z = Number.POSITIVE_INFINITY;
       if (slot.respawnIn <= 0) {
         slot.stolen = false;
         // re-enter from whichever end it was heading away from
