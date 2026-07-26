@@ -200,7 +200,7 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, 0.98, 0]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, RIDE_HEIGHT, 0]}>
       {/* detail="low" — a dozen NPC cars are never seen close enough for
           spokes/mirrors/occupants to be more than a pixel, and skipping them
           keeps the draw-call count from tripling as traffic density grew */}
