@@ -127,8 +127,19 @@ const LANE_OFFSET = 3; // sideways shift off the road centreline (road is 20 wid
 // policeCar are kept live every frame by their own components regardless of
 // which one is actually active (a parked-and-abandoned car still updates
 // its own x/z), so this also works if the player gets out and walks away.
+//
+// The player ON FOOT is in this list too. Traffic cars carry no collider at
+// all (kinematic, driven purely by the scripted lane position below), and
+// Rapier never resolves kinematic-vs-kinematic overlap anyway, so nothing in
+// the physics world was stopping a lane car driving clean through someone
+// standing in the road. worldState.px/pz IS the on-foot position whenever
+// `foot` is the active mode, so no new plumbing is needed to find them.
+const obstacles: { x: number; z: number }[] = [];
 function laneBlocked(lane: Lane, nextPos: number, dir: number): boolean {
-  for (const v of [vehicleState.car, vehicleState.bike, vehicleState.policeCar]) {
+  obstacles.length = 0; // reused across frames/cars — never reallocated
+  obstacles.push(vehicleState.car, vehicleState.bike, vehicleState.policeCar);
+  if (useHudStore.getState().active === "foot") obstacles.push(worldState.pos());
+  for (const v of obstacles) {
     const along = lane.axis === "x" ? v.x : v.z;
     const across = lane.axis === "x" ? v.z : v.x;
     if (Math.abs(across - lane.lane) > LANE_HALF_WIDTH) continue; // not in this lane
