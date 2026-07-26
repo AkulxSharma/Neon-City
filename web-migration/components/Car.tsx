@@ -42,6 +42,7 @@ export function Car() {
   const camPos = useRef(new THREE.Vector3(0, 4, -10));
   const camLook = useRef(new THREE.Vector3());
   const controllerRef = useRef<KinematicCharacterController | null>(null);
+  const meshRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
     const controller = world.createCharacterController(0.02);
