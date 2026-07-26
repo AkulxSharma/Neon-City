@@ -141,9 +141,15 @@ export function PoliceCar() {
       ref={bodyRef}
       type="kinematicPosition"
       colliders={false}
-      position={[save?.x ?? vehicleState.policeCar.x, 1, save?.z ?? vehicleState.policeCar.z]}
+      position={[save?.x ?? vehicleState.policeCar.x, RIDE_HEIGHT, save?.z ?? vehicleState.policeCar.z]}
     >
-      <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
+      {/* Same drop as Car.tsx — collider bottom on the tyre contact patch, not
+          on the mesh origin, or snapToGround buries the cruiser 0.305m. */}
+      <CuboidCollider
+        ref={colliderRef}
+        args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]}
+        position={[0, carBox.y / 2 - RIDE_HEIGHT, 0]}
+      />
       <PoliceCarMesh lightRefs={lightRefs} />
     </RigidBody>
   );
