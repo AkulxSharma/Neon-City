@@ -7,9 +7,12 @@ const MOUNT_RADIUS2 = 4.5 * 4.5; // same threshold as the original's nearestVehi
 
 /** Ported from the original's toggleVehicle(): mount the nearest vehicle in
  * range when on foot, or dismount the current one back to on-foot. The
- * original's "steal a traffic car" branch doesn't apply here — this build's
- * three vehicles are always player-owned, never traffic-driven. */
-export function toggleVehicleFoot() {
+ * original's "steal a traffic car" branch lives in lib/steal.ts instead —
+ * traffic here isn't drivable, so hijacking one works the other way round.
+ *
+ * Returns false only when on foot with nothing OWNED in range, which is what
+ * lets Game.tsx fall through to the steal attempt. */
+export function toggleVehicleFoot(): boolean {
   const hud = useHudStore.getState();
   if (hud.active === "foot") {
     let best: VehicleKind | null = null;
