@@ -58,6 +58,7 @@ export function stealTrafficAction(): boolean {
   requestTeleport(slot.x, slot.z, slot.h);
 
   slot.stolen = true;
+  slot.respawnIn = RESPAWN_DELAY; // must be set here — Traffic.tsx counts DOWN from it
   hud.showMsg("STOLEN: " + useHudStore.getState().vehicleName());
   return true;
 }
