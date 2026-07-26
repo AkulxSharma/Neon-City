@@ -1,4 +1,4 @@
-import { trafficPositions } from "@/components/Traffic";
+import { trafficPositions, RESPAWN_DELAY } from "@/components/Traffic";
 import { worldState } from "@/lib/worldState";
 import { vehicleState } from "@/lib/vehicleState";
 import { useHudStore, type VehicleKind } from "@/lib/hudStore";
