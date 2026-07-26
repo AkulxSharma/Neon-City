@@ -42,6 +42,13 @@ const HEADLIGHT = new THREE.MeshBasicMaterial({ color: "#eaf2ff" });
 const TAILLIGHT = new THREE.MeshBasicMaterial({ color: "#ff2b2b" });
 const SKIN = new THREE.MeshLambertMaterial({ color: "#d9a066" });
 
+// Distance from the body group's origin DOWN to the tyre contact patch: the
+// wheels hang at y = -0.62 with a 0.36 tyre radius. Nothing in the group is
+// authored around a centred origin, so any consumer that wants the car to sit
+// ON the road has to place the group this far above it — a collider centred on
+// the origin instead buries the car by (RIDE_HEIGHT - halfHeight).
+export const RIDE_HEIGHT = 0.98;
+
 // wheel geometry is built once and pre-rotated onto the car's x (axle) axis,
 // same trick City.tsx uses for HIP_ROOF_GEO
 const TIRE_GEO = new THREE.CylinderGeometry(0.36, 0.36, 0.3, 20).rotateZ(Math.PI / 2);
