@@ -122,6 +122,15 @@ export function Car() {
     const movement = controller.computedMovement();
 
     const t = body.translation();
+    // TEMP DEBUG — remove before final push
+    if (process.env.NODE_ENV !== "production") {
+      (window as unknown as { __carDbg: unknown }).__carDbg = {
+        bodyY: t.y,
+        grounded,
+        colliderY: collider.translation().y,
+        colliderHalfY: (collider as unknown as { halfExtents?: () => { y: number } }).halfExtents?.().y,
+      };
+    }
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
 
     // drowning safety net: the shore wall (Marina.tsx) keeps this unreachable
