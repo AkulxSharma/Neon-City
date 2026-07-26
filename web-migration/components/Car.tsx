@@ -131,7 +131,7 @@ export function Car() {
       drownTime.current += d;
       if (drownTime.current > DROWN_LIMIT) {
         drownTime.current = 0;
-        body.setTranslation({ x: DROWN_RESPAWN.x, y: 1, z: DROWN_RESPAWN.z }, true);
+        body.setTranslation({ x: DROWN_RESPAWN.x, y: RIDE_HEIGHT, z: DROWN_RESPAWN.z }, true);
         car.current.h = DROWN_RESPAWN.h;
         car.current.speed = 0;
         car.current.vLat = 0;
