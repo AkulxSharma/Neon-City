@@ -2,6 +2,7 @@ import { worldState } from "@/lib/worldState";
 import { vehicleState } from "@/lib/vehicleState";
 import { useHudStore, VEHICLE_NAMES, type VehicleKind } from "@/lib/hudStore";
 import { clubHintText } from "@/lib/club";
+import { trafficPositions } from "@/components/Traffic";
 
 const MOUNT_HINT_RADIUS2 = 5 * 5; // slightly wider than the 4.5 mount action radius
 
