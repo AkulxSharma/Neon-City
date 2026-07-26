@@ -266,8 +266,9 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
 
     body.setNextKinematicTranslation({ x, y: RIDE_HEIGHT, z });
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading));
-    trafficPositions[index].x = x;
-    trafficPositions[index].z = z;
+    slot.x = x;
+    slot.z = z;
+    slot.h = heading; // lib/steal.ts hands this straight to the vehicle you take over
   });
 
   return (
@@ -275,11 +276,13 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
       {/* detail="low" — a dozen NPC cars are never seen close enough for
           spokes/mirrors/occupants to be more than a pixel, and skipping them
           keeps the draw-call count from tripling as traffic density grew */}
-      {lane.police ? (
-        <PoliceCarMesh lightRefs={lightRefs} detail="low" />
-      ) : (
-        <CarMesh color={lane.color} detail="low" />
-      )}
+      <group ref={meshRef}>
+        {lane.police ? (
+          <PoliceCarMesh lightRefs={lightRefs} detail="low" />
+        ) : (
+          <CarMesh color={lane.color} style={trafficPositions[index].style} detail="low" />
+        )}
+      </group>
     </RigidBody>
   );
 }
