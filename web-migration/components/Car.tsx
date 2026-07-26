@@ -14,7 +14,7 @@ import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
 import { SHORE_X, DROWN_RESPAWN } from "@/lib/marina";
-import { SupercarBody, styleFor, type Detail } from "@/components/SupercarBody";
+import { SupercarBody, styleFor, RIDE_HEIGHT, type CarStyle, type Detail } from "@/components/SupercarBody";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12; // m/s^2 fed into the character controller so it stays snapped to the ground
@@ -72,7 +72,7 @@ export function Car() {
     // club door teleport (enter/exit VENU) — see lib/club.ts
     if (isActive && teleportRequest.pending) {
       teleportRequest.pending = false;
-      body.setTranslation({ x: teleportRequest.x, y: 1, z: teleportRequest.z }, true);
+      body.setTranslation({ x: teleportRequest.x, y: RIDE_HEIGHT, z: teleportRequest.z }, true);
       car.current.h = teleportRequest.h;
       car.current.speed = 0;
       car.current.vLat = 0;
@@ -131,7 +131,7 @@ export function Car() {
       drownTime.current += d;
       if (drownTime.current > DROWN_LIMIT) {
         drownTime.current = 0;
-        body.setTranslation({ x: DROWN_RESPAWN.x, y: 1, z: DROWN_RESPAWN.z }, true);
+        body.setTranslation({ x: DROWN_RESPAWN.x, y: RIDE_HEIGHT, z: DROWN_RESPAWN.z }, true);
         car.current.h = DROWN_RESPAWN.h;
         car.current.speed = 0;
         car.current.vLat = 0;
@@ -186,9 +186,19 @@ export function Car() {
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 0, 1, save?.z ?? 0]}>
-      <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
-      <CarMesh />
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 0, RIDE_HEIGHT, save?.z ?? 0]}>
+      {/* Dropped so the collider's BOTTOM face lands on the tyre contact patch
+          rather than on the mesh origin. Centred, snapToGround parked the
+          chassis at half the box height (0.65) and buried the car 0.33m. */}
+      <CuboidCollider
+        ref={colliderRef}
+        args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]}
+        position={[0, carBox.y / 2 - RIDE_HEIGHT, 0]}
+      />
+      {/* keyed on the stolen paint so the mesh remounts when you take over a
+          traffic car — CarMesh pins colour/style at mount (useState), so a
+          prop change alone would not repaint an already-mounted body */}
+      <StolenAwareCarMesh />
     </RigidBody>
   );
 }
@@ -208,14 +218,36 @@ const SEDAN_COLORS = [
   "#8f959f", // grigio
 ];
 
+// The player's sedan wears whatever it was last stolen as (lib/steal.ts), so
+// the car you drive away in looks like the one you walked up to. Held in the
+// HUD store rather than a mutable singleton because a repaint is one of the
+// few things here that legitimately wants a re-render — and it's isolated in
+// this leaf so a steal never re-renders the drive rig above it.
+function StolenAwareCarMesh() {
+  const stolen = useHudStore((s) => s.stolenCar);
+  return (
+    <CarMesh
+      key={stolen ? `${stolen.color}:${stolen.style}` : "own"}
+      color={stolen?.color}
+      style={stolen?.style}
+    />
+  );
+}
+
 // The whole silhouette now lives in components/SupercarBody.tsx (shared with
 // PoliceCar.tsx); this just picks paint + roofline for one instance.
-export function CarMesh({ color, detail = "high" }: { color?: string; detail?: Detail } = {}) {
+export function CarMesh({
+  color,
+  style,
+  detail = "high",
+}: { color?: string; style?: CarStyle; detail?: Detail } = {}) {
   // random-once-at-mount, not a memo: neither value changes after mount for
   // any given instance, and useState's lazy initializer is the sanctioned
   // place for a one-time impure value (Math.random) — a plain useMemo
-  // re-running is not guaranteed not to happen more than once
+  // re-running is not guaranteed not to happen more than once.
+  // Both fall back to a roll only when the caller doesn't pin them; Traffic.tsx
+  // and the stolen-car path below both pin, so their cars are stable.
   const [bodyColor] = useState(() => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)]);
-  const [style] = useState(() => styleFor(Math.random() * 300));
-  return <SupercarBody color={bodyColor} style={style} detail={detail} />;
+  const [ownStyle] = useState(() => styleFor(Math.random() * 300));
+  return <SupercarBody color={color ?? bodyColor} style={style ?? ownStyle} detail={detail} />;
 }

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { LANDMARKS, type Landmark } from "@/lib/landmarks";
+import type { CarStyle } from "@/components/SupercarBody";
 
 export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat";
 export type ActiveMode = VehicleKind | "foot";
@@ -38,6 +39,9 @@ interface HudState {
   waypointDeg: number;
   mapOpen: boolean;
   inClub: boolean;
+  // paint/roofline the player's sedan is currently wearing after a steal
+  // (lib/steal.ts); null = its own factory colour. Consumed by Car.tsx.
+  stolenCar: { color: string; style: CarStyle } | null;
   setHud: (speedKmh: number, grounded: boolean) => void;
   toggleActive: () => void;
   setActive: (m: ActiveMode) => void;
@@ -51,6 +55,7 @@ interface HudState {
   setNavTarget: (l: Landmark) => void;
   setMapOpen: (open: boolean) => void;
   setInClub: (v: boolean) => void;
+  setStolenCar: (v: { color: string; style: CarStyle } | null) => void;
   vehicleName: () => string;
 }
 
@@ -74,6 +79,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   waypointDeg: 0,
   mapOpen: false,
   inClub: false,
+  stolenCar: null,
   setHud: (speedKmh, grounded) => set({ speedKmh, grounded }),
   // no-ops while on foot — B is this build's own quick-switch between owned
   // vehicles, not a thing while walking (mount via E near a vehicle instead)
@@ -94,6 +100,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   setNavTarget: (l) => set({ navTarget: l, mapOpen: false }),
   setMapOpen: (open) => set({ mapOpen: open }),
   setInClub: (v) => set({ inClub: v }),
+  setStolenCar: (v) => set({ stolenCar: v }),
   vehicleName: () => {
     const a = get().active;
     return a === "foot" ? "ON FOOT" : VEHICLE_NAMES[a];
