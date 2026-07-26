@@ -105,7 +105,7 @@ export const trafficPositions: TrafficSlot[] = LANES.map((l, i) => ({
 // How long a stolen lane stays empty before a replacement car enters. Long
 // enough that the swap doesn't read as a pop-in, short enough that repeatedly
 // stealing doesn't visibly thin the city out.
-const RESPAWN_DELAY = 14;
+export const RESPAWN_DELAY = 14;
 
 export function Traffic() {
   return (
