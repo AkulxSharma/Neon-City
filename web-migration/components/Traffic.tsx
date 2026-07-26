@@ -193,7 +193,7 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
       if (lightRefs.current[1]) lightRefs.current[1].color.set(flashRed ? "#0a1030" : "#2040ff");
     }
 
-    body.setNextKinematicTranslation({ x, y: 0.98, z });
+    body.setNextKinematicTranslation({ x, y: RIDE_HEIGHT, z });
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading));
     trafficPositions[index].x = x;
     trafficPositions[index].z = z;
