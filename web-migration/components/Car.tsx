@@ -218,6 +218,22 @@ const SEDAN_COLORS = [
   "#8f959f", // grigio
 ];
 
+// The player's sedan wears whatever it was last stolen as (lib/steal.ts), so
+// the car you drive away in looks like the one you walked up to. Held in the
+// HUD store rather than a mutable singleton because a repaint is one of the
+// few things here that legitimately wants a re-render — and it's isolated in
+// this leaf so a steal never re-renders the drive rig above it.
+function StolenAwareCarMesh() {
+  const stolen = useHudStore((s) => s.stolenCar);
+  return (
+    <CarMesh
+      key={stolen ? `${stolen.color}:${stolen.style}` : "own"}
+      color={stolen?.color}
+      style={stolen?.style}
+    />
+  );
+}
+
 // The whole silhouette now lives in components/SupercarBody.tsx (shared with
 // PoliceCar.tsx); this just picks paint + roofline for one instance.
 export function CarMesh({
