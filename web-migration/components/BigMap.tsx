@@ -9,7 +9,19 @@ const SIZE = 460;
 // fixed world-space bounds covering every landmark with margin — a full map,
 // not a player-centred pannable one (the original's #bigmap is player-centred;
 // simplified here since the destination list already covers selection)
-const WX0 = -260, WX1 = 520, WZ0 = -320, WZ1 = 320;
+const WX0 = -260, WX1 = 620, WZ0 = -320, WZ1 = 320;
+const CELL = 100; // City.tsx CELL
+const ROAD_W = 20; // City.tsx ROAD_W
+const SHORE_X = 600; // lib/marina.ts SHORE_X
+
+// See Minimap.tsx: clamp a landmark to within ±20 of its block centre so the
+// marker sits deep on the footpath, a clear 20 units off the nearest kerb —
+// never on (or hugging) the drawn asphalt.
+const BLOCK_SAFE = 20;
+function offRoad(v: number) {
+  const bc = Math.round(v / CELL) * CELL;
+  return bc + Math.max(-BLOCK_SAFE, Math.min(BLOCK_SAFE, v - bc));
+}
 
 export function BigMap() {
   const open = useHudStore((s) => s.mapOpen);
@@ -31,42 +43,72 @@ export function BigMap() {
 
     const draw = () => {
       raf.current = requestAnimationFrame(draw);
-      ctx.fillStyle = "#0a0c12";
+
+      // concrete blocks as the base, water past the shore
+      ctx.fillStyle = "#3a424d";
       ctx.fillRect(0, 0, SIZE, SIZE);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.06)";
-      for (let x = Math.ceil(WX0 / 100) * 100; x < WX1; x += 100) {
-        const [px] = toPx(x, 0);
-        ctx.beginPath();
-        ctx.moveTo(px, 0);
-        ctx.lineTo(px, SIZE);
-        ctx.stroke();
-      }
-      for (let z = Math.ceil(WZ0 / 100) * 100; z < WZ1; z += 100) {
-        const [, pz] = toPx(0, z);
-        ctx.beginPath();
-        ctx.moveTo(0, pz);
-        ctx.lineTo(SIZE, pz);
-        ctx.stroke();
+      const [wsx] = toPx(SHORE_X, 0);
+      if (wsx < SIZE) {
+        ctx.fillStyle = "#13527e";
+        ctx.fillRect(wsx, 0, SIZE - wsx, SIZE);
       }
 
-      for (const l of LANDMARKS) {
-        const [px, pz] = toPx(l.x, l.z);
+      // asphalt streets along every chunk boundary (≡ 50 mod 100)
+      ctx.fillStyle = "#161922";
+      for (let x = Math.ceil((WX0 - 50) / CELL) * CELL + 50; x < WX1; x += CELL) {
+        const [cx] = toPx(x - ROAD_W / 2, 0);
+        ctx.fillRect(cx, 0, ROAD_W * sx, SIZE);
+      }
+      for (let z = Math.ceil((WZ0 - 50) / CELL) * CELL + 50; z < WZ1; z += CELL) {
+        const [, cz] = toPx(0, z - ROAD_W / 2);
+        ctx.fillRect(0, cz, SIZE, ROAD_W * sz);
+      }
+      // dashed lane centre lines
+      ctx.strokeStyle = "rgba(244,208,92,0.5)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 6]);
+      for (let x = Math.ceil((WX0 - 50) / CELL) * CELL + 50; x < WX1; x += CELL) {
+        const [cx] = toPx(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(cx, 0);
+        ctx.lineTo(cx, SIZE);
+        ctx.stroke();
+      }
+      for (let z = Math.ceil((WZ0 - 50) / CELL) * CELL + 50; z < WZ1; z += CELL) {
+        const [, cz] = toPx(0, z);
+        ctx.beginPath();
+        ctx.moveTo(0, cz);
+        ctx.lineTo(SIZE, cz);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      LANDMARKS.forEach((l, i) => {
+        const [px, pz] = toPx(offRoad(l.x), offRoad(l.z));
+        const r = l === navTarget ? 7 : 5;
         ctx.fillStyle = l.col;
         ctx.beginPath();
-        ctx.arc(px, pz, l === navTarget ? 7 : 5, 0, Math.PI * 2);
+        ctx.arc(px, pz, r, 0, Math.PI * 2);
         ctx.fill();
-        if (l === navTarget) {
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 11px Arial";
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = l === navTarget ? "#fff" : "rgba(0,0,0,0.55)";
+        ctx.stroke();
+        // stagger label above/below by index so neighbouring pins (e.g. POLICE
+        // HARBOR / EAST MARINA, both on the z=50 road near the water) don't collide
+        ctx.font = "bold 12px system-ui, Arial";
+        const above = i % 2 === 0;
+        const half = ctx.measureText(l.name).width / 2 + 4;
+        const lx = Math.max(half, Math.min(SIZE - half, px));
         ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        ctx.fillText(l.name, px, pz - 8);
-      }
+        ctx.textBaseline = above ? "bottom" : "top";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = "rgba(6,8,14,0.9)";
+        const ly = above ? pz - r - 4 : pz + r + 4;
+        ctx.strokeText(l.name, lx, ly);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(l.name, lx, ly);
+      });
 
       const [ppx, ppz] = toPx(worldState.px, worldState.pz);
       ctx.save();

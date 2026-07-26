@@ -29,7 +29,7 @@ export function Boat() {
 
   const [save] = useState(() => loadSave()?.vehicles.boat ?? null);
   const boat = useRef<CarState>({ h: save?.h ?? Math.PI, speed: 0, vLat: 0, steerAng: 0 });
-  const pos = useRef({ x: save?.x ?? 40, z: save?.z ?? 0 });
+  const pos = useRef({ x: save?.x ?? 595, z: save?.z ?? 0 });
   const camPos = useRef(new THREE.Vector3(30, 5, -10));
   const camLook = useRef(new THREE.Vector3());
 
@@ -100,7 +100,7 @@ export function Boat() {
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 40, WATER_LEVEL, save?.z ?? 0]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? 595, WATER_LEVEL, save?.z ?? 0]}>
       <mesh castShadow>
         <boxGeometry args={[hullSize.x, hullSize.y, hullSize.z]} />
         <meshStandardMaterial color="#e8e2d0" metalness={0.35} roughness={0.34} />

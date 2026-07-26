@@ -28,20 +28,29 @@ interface Lane {
   police?: boolean;
 }
 
+// Lane cross-axis values must land on the real road grid. City.tsx bakes
+// asphalt only in the outer 10 units of each chunk edge (buildTileTexture), so
+// a road runs along every chunk boundary — coordinates ≡ 50 (mod 100), e.g.
+// ±50, ±150. Chunk() now walls each chunk's interior off to Car/Bike/Traffic
+// (VEHICLE_ONLY curb at cx±40, see lib/collisionGroups.ts), so a lane anywhere
+// off that grid drives straight into a curb. `lane` (the fixed cross-axis
+// value) is therefore always an odd multiple of 50.
 const LANES: Lane[] = [
-  { axis: "x", lane: -30, min: -85, max: 85, speed: 10, color: "#8b93a1" },
-  { axis: "x", lane: 34, min: -85, max: 85, speed: 13, color: "#3a3f4a" },
-  { axis: "z", lane: 46, min: -85, max: 85, speed: 9, color: "#1f4a7a" },
+  { axis: "x", lane: 50, min: -85, max: 85, speed: 10, color: "#8b93a1" },
+  { axis: "x", lane: -50, min: -85, max: 85, speed: 13, color: "#3a3f4a" },
+  { axis: "z", lane: 50, min: -85, max: 85, speed: 9, color: "#1f4a7a" },
   { axis: "z", lane: -50, min: -85, max: 85, speed: 11, color: "#7a2020" },
-  { axis: "x", lane: 0, min: -85, max: 85, speed: 8, color: "#2a5a3a" },
-  // patrol the police-station neighborhood (lib/landmarks.ts POLICE HARBOR ~
-  // (0,50)) — recruit into a convoy behind the player whenever a police
+  { axis: "x", lane: 150, min: -85, max: 85, speed: 8, color: "#2a5a3a" },
+  // patrol the police-station neighborhood (lib/landmarks.ts POLICE HARBOR,
+  // x:450 z:50) — recruit into a convoy behind the player whenever a police
   // vehicle (policeCar) is being driven nearby, ported from the original's
   // recruit-on-siren convoy system (index.html ~line 7365-7400), ~line
   // 7466's felony-stop boxing-in maneuver deliberately not ported — a
-  // meaningfully bigger state machine than a straight follow, left for later
-  { axis: "x", lane: 20, min: -70, max: 70, speed: 11, color: "#0c0c0e", police: true },
-  { axis: "z", lane: 30, min: -70, max: 70, speed: 12, color: "#0c0c0e", police: true },
+  // meaningfully bigger state machine than a straight follow, left for later.
+  // Both lanes on the road intersection under the station (x=450, z=50, both
+  // odd-50 road lines) after the shore restore moved it out to (450,50).
+  { axis: "x", lane: 50, min: 380, max: 520, speed: 11, color: "#0c0c0e", police: true },
+  { axis: "z", lane: 450, min: -30, max: 110, speed: 12, color: "#0c0c0e", police: true },
 ];
 
 // read by Minimap.tsx to draw traffic blips — same shared-singleton pattern as

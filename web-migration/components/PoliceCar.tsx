@@ -12,7 +12,8 @@ import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
-import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
+import { checkCrashDebris } from "@/lib/debris";
+import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
 
@@ -36,6 +37,7 @@ export function PoliceCar() {
   const [save] = useState(() => loadSave()?.vehicles.policeCar ?? null);
   const car = useRef<CarState>({ h: save?.h ?? vehicleState.policeCar.h, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
+  const crashCooldown = useRef(0);
   const camPos = useRef(new THREE.Vector3(0, 4, -10));
   const camLook = useRef(new THREE.Vector3());
   const controllerRef = useRef<KinematicCharacterController | null>(null);
@@ -86,7 +88,9 @@ export function PoliceCar() {
     );
 
     fallSpeed.current += GRAVITY_PULL * d;
-    controller.computeColliderMovement(collider, { x: dx, y: fallSpeed.current * d, z: dz });
+    // see Car.tsx: EXCLUDE_DYNAMIC lets the cruiser plow through props instead
+    // of sliding/stopping on them, while the solver still shoves the prop aside.
+    controller.computeColliderMovement(collider, { x: dx, y: fallSpeed.current * d, z: dz }, QueryFilterFlags.EXCLUDE_DYNAMIC);
     const grounded = controller.computedGrounded();
     if (grounded) fallSpeed.current = 0;
     const movement = controller.computedMovement();
@@ -95,6 +99,10 @@ export function PoliceCar() {
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
     body.setNextKinematicTranslation(nextPos);
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), car.current.h));
+
+    if (isActive) {
+      checkCrashDebris(crashCooldown, d, { x: dx, z: dz }, { x: movement.x, z: movement.z }, Math.abs(car.current.speed), nextPos, car.current.h);
+    }
 
     vehicleState.policeCar.x = nextPos.x;
     vehicleState.policeCar.z = nextPos.z;

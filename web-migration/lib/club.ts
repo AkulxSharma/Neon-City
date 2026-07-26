@@ -4,10 +4,12 @@ import { requestTeleport } from "@/lib/clubTeleport";
 import { requestPlayerTeleport } from "@/lib/playerTeleport";
 import { startClubMusic, stopClubMusic } from "@/lib/audio";
 
-// Exact coordinates from the original's CLUB/CLUB_IN — the interior is a real
-// place in the world, built far south so it never meets the streamed city
-// (see City.tsx's exemption), not an overlay scene.
-export const CLUB = { cx: -50, cz: -50 };
+// CLUB_IN (interior) keeps the original's far-south coordinate; the EXTERIOR was
+// moved off the (-50,-50) road intersection — where the 38×28 building straddled
+// both streets — to the centre of the block one south of spawn. There it clears
+// every road band (x∈[-19,19]⊂[-40,40], z∈[-114,-86]⊂[-140,-60]) and its +z
+// entrance face still points back at the spawn block.
+export const CLUB = { cx: 0, cz: -100 };
 export const CLUB_IN = { x: -50, z: -4050 };
 
 const DOOR_OUT = { x: CLUB.cx, z: CLUB.cz + 15.5 }; // matches the VENU landmark spot

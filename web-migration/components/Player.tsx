@@ -3,13 +3,17 @@
 import { useRef, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { RigidBody, CuboidCollider, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
+import { PLAYER_GROUPS } from "@/lib/collisionGroups";
 import * as THREE from "three";
 import { useKeyboard } from "@/lib/useKeyboard";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { playerTeleport } from "@/lib/playerTeleport";
+import { SHORE_X } from "@/lib/marina";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
+
+const DROWN_LIMIT = 2; // seconds in open water before respawn
 
 // Ported from the original's on-foot tick() block: turn 2.6 rad/s, walk 4.5
 // m/s / sprint 9 m/s (SHIFT), accel/decel ramp (30 accelerating, 36 braking),
@@ -42,6 +46,7 @@ export function Player() {
   const walkPhase = useRef(0);
   const spaceWasDown = useRef(false);
   const groundedRef = useRef(true);
+  const drownTime = useRef(0);
   const camPos = useRef(new THREE.Vector3(0, 3, -6));
   const camLook = useRef(new THREE.Vector3());
   const controllerRef = useRef<KinematicCharacterController | null>(null);
@@ -110,10 +115,30 @@ export function Player() {
 
     const t = body.translation();
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
+
+    // drowning: stuck in open water (no ground under it, see Marina.tsx's shore
+    // wall which normally keeps you out) past DROWN_LIMIT respawns you at START,
+    // same fix the original applies via its own onFoot water check
+    if (nextPos.x >= SHORE_X) {
+      drownTime.current += d;
+      if (drownTime.current > DROWN_LIMIT) {
+        drownTime.current = 0;
+        body.setTranslation({ x: START.x, y: 1, z: START.z }, true);
+        foot.current.h = START.h;
+        foot.current.speed = 0;
+        foot.current.vy = 0;
+        worldState.px = START.x;
+        worldState.pz = START.z;
+        worldState.heading = START.h;
+        return;
+      }
+    } else {
+      drownTime.current = 0;
+    }
+
     body.setNextKinematicTranslation(nextPos);
 
-    groupRef.current.rotation.y = foot.current.h;
-    groupRef.current.position.set(nextPos.x, nextPos.y - 0.75, nextPos.z); // collider center -> feet-on-ground mesh offset
+    groupRef.current.rotation.y = foot.current.h; // group is a child of the RigidBody, which already tracks nextPos — no position update needed here
 
     worldState.px = nextPos.x;
     worldState.pz = nextPos.z;
@@ -162,8 +187,8 @@ export function Player() {
 
   return (
     <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[START.x, 1, START.z]}>
-      <CuboidCollider ref={colliderRef} args={[0.3, 0.75, 0.3]} />
-      <group ref={groupRef} position={[START.x, 0, START.z]}>
+      <CuboidCollider ref={colliderRef} args={[0.3, 0.75, 0.3]} collisionGroups={PLAYER_GROUPS} />
+      <group ref={groupRef} position={[0, -0.75, 0]}>
         <PersonMesh legL={legL} legR={legR} armL={armL} armR={armR} />
       </group>
     </RigidBody>

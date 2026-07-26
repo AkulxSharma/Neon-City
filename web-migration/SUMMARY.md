@@ -865,22 +865,157 @@ PersonFigure.tsx` (new); `components/Crowd.tsx` (refactored onto
 `components/SkyCycle.tsx` (hemisphere/fill lights, sun color, tone-mapping
 exposure).
 
+## Milestone 14 — world-scale restore + shore/drowning/pier physics (2026-07-26)
+
+The coastline (`SHORE_X`/`SHORE_CI` in `lib/marina.ts`/`components/City.tsx`)
+had been shrunk to `45`/`1` at some point, compressing the whole east side of
+the map into a ~95-unit strip and putting the shore right next to VENU. Restored
+to the original's real numbers (`SHORE_X=600`, `SHORE_CI=6`), and cascaded the
+fix through everything anchored off the old value: `Water.tsx`'s plane, the
+EAST MARINA/POLICE HARBOR landmarks, `PoliceStation.tsx`, and the
+`policeCar`/`patrolBoat`/`boat` spawn defaults in `lib/vehicleState.ts` — all
+shifted by the same delta so they still sit at the (real) shoreline instead of
+floating in open water.
+
+Fixed two real bugs found while restoring it: `Boat.tsx` had its old-shore
+`x:40` default hardcoded in **two** places (a `pos` ref used every frame, and
+a separate `RigidBody` JSX `position` prop) — only one got updated the first
+pass, so the boat kept resting on dry land next to spawn. And the on-foot
+`Player.tsx` had a doubled-transform bug: its visual `<group>` was a *child*
+of the `RigidBody`, which already tracks the body's world position, but the
+group's own position was *also* being set to that same absolute position every
+frame — doubling the offset from spawn so the character rendered nowhere near
+where the camera looked (invisible in practice). Fixed by giving the group a
+constant local offset instead.
+
+Added a real coastline: an invisible `VEHICLE_ONLY`-tagged wall (new
+`lib/collisionGroups.ts` — group 0 = player, group 1 = vehicle-only geometry)
+along the full length of the shore, with a gap at the marina pier that's
+closed to cars/bikes but stays open for the on-foot player to walk out and
+board the boat. Added a drowning timer to `Player.tsx`: >2s with `x >=
+SHORE_X` on foot respawns at `START`. Traffic's fixed lane coordinates
+(`Traffic.tsx`) didn't line up with the real road grid (asphalt only runs at
+chunk-boundary multiples of `CELL`, i.e. `x/z ≡ 50 mod 100`) — realigned every
+lane, including the police patrol lanes onto the police station's new
+location.
+
+Also relocated the VENU club exterior itself (`lib/club.ts`'s `CLUB`
+constant): it sat at `(-50,-50)`, a road intersection, so the 38×28 building
+straddled both streets. Moved to the center of the block one south of spawn,
+clear of every road band.
+
+**Files changed:** `lib/marina.ts`, `components/City.tsx` (`SHORE_CI`),
+`components/Water.tsx`, `lib/landmarks.ts`, `components/PoliceStation.tsx`,
+`lib/vehicleState.ts`, `components/Boat.tsx`, `components/Player.tsx`,
+`components/Marina.tsx` (shore wall), `lib/collisionGroups.ts` (new),
+`components/Traffic.tsx`, `lib/club.ts`.
+
+## Milestone 15 — real Rapier dynamics, tree collision, redesigned maps (2026-07-26)
+
+Every mover in the game (car/bike/police/player) is a Rapier `kinematicPosition`
+body driven by hand-rolled arcade math — real dynamics (forces/impulses/
+momentum) were unused anywhere. Added the first dynamic (non-kinematic)
+bodies: a fixed pool of knockable props (traffic cones/barrels/crates,
+`components/Props.tsx`) that a car physically shoves via the normal contact
+solver, plus a pooled debris-fragment system that bursts on a hard crash
+(`lib/debris.ts`'s `checkCrashDebris`, wired into `Car.tsx`/`Bike.tsx`/
+`PoliceCar.tsx`, drained each frame by `Props.tsx`). The car/bike/police
+`computeColliderMovement` calls now pass `QueryFilterFlags.EXCLUDE_DYNAMIC` so
+the character-controller's obstacle sweep ignores these props — driving stays
+exactly as tuned, a cone just gets knocked aside instead of stopping the car.
+
+Trees (`City.tsx`) were flagged visual-only in the original file header ("no
+tree collision — dressing, not an obstacle") — a car could drive straight
+through one. Gave the trunk a real `CylinderCollider` (the crown stays
+visual-only, matching how a real tree behaves). Also gave trees actual
+canopy structure: 5 offset foliage lobes with tint variation instead of one
+smooth sphere, plus 2 base-anchored branch stubs bridging trunk to canopy
+(the first version centred the branch geometry, which left half its length
+going nowhere instead of reaching the canopy — re-anchored to its root so
+`scale.y=length` always reaches exactly that far).
+
+Redesigned both maps (`Minimap.tsx`, `BigMap.tsx`): the street grid had been
+drawn at chunk *centres* (multiples of `CELL`), a half-block off from where
+`City.tsx` actually bakes asphalt (chunk *boundaries*, `x/z ≡ 50 mod 100`) —
+landmarks and VENU in particular looked like they sat on the road. Redrawn
+with the real grid, every landmark marker clamped to within ±20 of its block
+centre so it reads as sitting on the footpath, brighter concrete-block palette,
+water past the shore, non-overlapping staggered labels.
+
+Also sharpened the road/sidewalk canvas texture (`buildTileTexture` in
+`City.tsx`): canvas antialiases anything drawn at fractional pixel
+coordinates, which is what made lane lines/curbs/crosswalks look soft —
+snapped every coordinate to whole pixels, quadrupled the bake resolution
+(384→1536), and switched the texture to `NearestFilter` + 16x anisotropy so
+edges stay hard instead of bilinear-blurring up close.
+
+**Files changed:** `components/Props.tsx` (new), `lib/debris.ts`,
+`components/Car.tsx`, `components/Bike.tsx`, `components/PoliceCar.tsx`,
+`components/City.tsx` (tree collider/detail, texture sharpening),
+`components/Minimap.tsx`, `components/BigMap.tsx`, `components/Game.tsx`
+(`Props` mount).
+
+## Milestone 16 — zoned building variety: districts, 8 archetypes (2026-07-26)
+
+The whole city was one archetype — a box, randomly sized, textured from a
+shared facade/glass palette. Replaced it with a zoned district system:
+`zoneFor(ci,cj)` in `City.tsx` groups chunks into 5x5-chunk (500x500 unit)
+districts sharing one of 4 zones (downtown/office/residential/commercial),
+hashed deterministically off the district coordinate so it reads as actual
+neighbourhoods you drive between, with a ring of downtown districts around
+spawn.
+
+Each zone spawns genuinely different structures, not one shape re-tinted:
+
+- **Downtown/office** — sparse (1-3 per block): glass **towers** (parapet cap
+  + rooftop antenna), stone **offices** (parapet + rooftop AC units), and a
+  residential **high-rise** (10-18 floors) for downtown's mixed-use skyline.
+- **Residential** — a block is one of: an **apartment** block (3-5 floors,
+  tiled windows + balconies front and back), an attached 3-unit **townhouse**
+  row (one shared roofline/collider, but each unit hashes its own wall
+  colour/door/windows off its own centre — distinct units within one
+  structure), or a uniform **house/hut** row: one template (kind/size/colour)
+  picked *once* per block and repeated across a 2x2 grid, so a street reads as
+  one colony phase, not 4 independently randomised houses. Houses got real
+  detail — door, flanking windows, optional side windows/chimney/porch, all
+  hashed off the *block's* anchor coordinate (not each house's own position)
+  so a uniform row's features actually match across the row.
+- **Commercial** — a 3-shop storefront row, each shop one of 3 structural
+  categories (not just a recolour): **retail** (glass storefront + sign),
+  **cafe** (retail + a striped awning), or **garage** (auto shop/car wash —
+  a real open drive-in bay: the collider only covers the back 2/3 of the
+  footprint, so the car can actually pull into the front third and park, with
+  a visible dark interior back wall). Every shop gets a readable business-type
+  sign (`SHOP_TYPES`, 20 real categories) glued flat to the wall — an earlier
+  version wrapped it in `<Billboard>`, which rotates to face the camera while
+  the sign board stays fixed to the wall, so from any angle but dead-on the
+  text visibly detached from its board; fixed by using a plain fixed `<Text>`
+  (buildings never rotate, so nothing needs billboarding). Shop/house walls
+  use flat single-colour materials instead of `FACADE_MATS` — that texture is
+  a dense window-grid baked for 10+ unit towers, and tiled into a busy
+  checkerboard ("mirror buildings") on an 8-unit shop or house wall.
+  `FACADE_MATS` is now reserved for actual office/tower/apartment buildings
+  tall enough for the texture's repeat scale to read correctly.
+- **Every tower/office/apartment** got a ground-floor entrance (dark glass
+  double-door + canopy overhang, shared `Entrance` component) — previously
+  the facade ran straight to the ground with no way in.
+
+**Files changed:** `components/City.tsx` (districts/zones, `BuildingSpec`,
+8 archetype renderers, shop categories, entrances, shop signage).
+
 ## Next up
 
-Both of Milestone 10's named blockers are closed (club fidelity is still
-simplified — see Milestone 9 — but police/convoy/dock is done), and
-pedestrians (Milestone 13) closed the gap Milestone 3 flagged and every
-milestone since forgot about. Remaining, roughly by size: **verify
-Milestone 13's ragdoll hit-test live** (see its own honest-gap note above —
-this is the most likely thing to be subtly broken, check it first); the
-club interior's own deliberate simplifications (Milestone 9 — rigged
-crowd, bar/couches/poles, exterior light beams, cut for scope, not
-fidelity-matched yet); the felony-stop convoy maneuver named and skipped
-in Milestone 11; the car's own `speed*=0.9` slowdown on hitting a
-pedestrian (Milestone 13, needs a shared speed singleton to wire up);
-instanced repeated props / a perf pass (roadmap Phase 6, `SUMMARY.md`'s own
-table); road texture detail (aggregate/cracks/oil-stains/manholes,
-Milestone 12/13); and the still-unconfirmed `dpr={1}`/`EffectComposer`
-render artifact, which has a real lead (SwiftShader software rendering)
-instead of a guess — worth a real-hardware check before spending more time
-theorizing about it in a sandbox that can't rule it in or out.
+World-scale, physics, maps, and building variety are now a cohesive whole
+city (Milestones 14-16) on top of the fidelity work in Milestones 1-13.
+Remaining, roughly by size: **verify Milestone 13's ragdoll hit-test live**
+(carried over, still unconfirmed — see its own honest-gap note above); the
+club interior's own deliberate simplifications (Milestone 9); the
+felony-stop convoy maneuver named and skipped in Milestone 11; the car's own
+`speed*=0.9` slowdown on hitting a pedestrian (Milestone 13); a perf pass
+now that Milestone 16 adds meaningfully more meshes per chunk (towers/
+apartments/townhouses each render several sub-meshes — worth profiling
+before adding more per-building detail); the garage bay's side walls/roof
+have no collider by design (visual only, so pulling in never gets stuck) —
+worth a follow-up pass if a player manages to clip through a side wall at
+speed; and the still-unconfirmed `dpr={1}`/`EffectComposer` render artifact
+from Milestone 13, still worth a real-hardware check.

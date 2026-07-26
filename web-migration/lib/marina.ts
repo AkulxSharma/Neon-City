@@ -3,7 +3,7 @@
 // enough for Car/Bike/Player but not boats) and Boat.tsx/PatrolBoat.tsx (hulls
 // need their own check, ported from the original's pierPush()/pierColliders,
 // since Boat.tsx never queries Rapier colliders at all — Milestone 2).
-export const SHORE_X = 45; // land/water edge near EAST MARINA — see lib/landmarks.ts
+export const SHORE_X = 600; // land/water edge near EAST MARINA — matches the original's raw SHORE_X (see lib/landmarks.ts)
 export const PIER_LEN = 40;
 export const PIER_Z = 50;
 

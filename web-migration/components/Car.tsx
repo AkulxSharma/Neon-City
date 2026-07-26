@@ -12,7 +12,8 @@ import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
-import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
+import { checkCrashDebris } from "@/lib/debris";
+import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12; // m/s^2 fed into the character controller so it stays snapped to the ground
 const NITRO_MAX = 10; // seconds of fuel — same numbers as the original's NITRO_MAX/NITRO_BOOST
@@ -32,6 +33,7 @@ export function Car() {
   // original game's per-vehicle object, kept in a ref so updating it never re-renders
   const car = useRef<CarState>({ h: save?.h ?? 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
+  const crashCooldown = useRef(0);
   const nitroFuel = useRef(NITRO_MAX);
   const camPos = useRef(new THREE.Vector3(0, 4, -10));
   const camLook = useRef(new THREE.Vector3());
@@ -106,7 +108,11 @@ export function Car() {
     // ground snap: small constant fall fed into the character controller, which
     // clamps it back to zero the instant it detects the floor (see enableSnapToGround)
     fallSpeed.current += GRAVITY_PULL * d;
-    controller.computeColliderMovement(collider, { x: dx, y: fallSpeed.current * d, z: dz });
+    // EXCLUDE_DYNAMIC: props (components/Props.tsx) are the only dynamic bodies
+    // in the game — skipping them from the sweep means the car's trajectory
+    // never slides/stops on a cone, it just plows through while the solver
+    // (unaffected by this query filter) still shoves the prop out of the way.
+    controller.computeColliderMovement(collider, { x: dx, y: fallSpeed.current * d, z: dz }, QueryFilterFlags.EXCLUDE_DYNAMIC);
     const grounded = controller.computedGrounded();
     if (grounded) fallSpeed.current = 0;
     const movement = controller.computedMovement();
@@ -114,6 +120,10 @@ export function Car() {
     const t = body.translation();
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
     body.setNextKinematicTranslation(nextPos);
+
+    if (isActive) {
+      checkCrashDebris(crashCooldown, d, { x: dx, z: dz }, { x: movement.x, z: movement.z }, Math.abs(car.current.speed), nextPos, car.current.h);
+    }
 
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), car.current.h);
     body.setNextKinematicRotation(q);

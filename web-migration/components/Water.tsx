@@ -39,7 +39,7 @@ seaRippleTex.repeat.set(18, 24);
 // read as water at a distance.
 export function Water() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[110, WATER_LEVEL - 0.02, 0]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[665, WATER_LEVEL - 0.02, 0]}>
       <planeGeometry args={[220, 300]} />
       <meshStandardMaterial
         color="#0a3a60"

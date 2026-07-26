@@ -2,6 +2,7 @@
 
 import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import { SHORE_X, PIER_LEN, PIER_Z } from "@/lib/marina";
+import { VEHICLE_ONLY } from "@/lib/collisionGroups";
 
 // EAST MARINA dock — ported from the original's shore/pier block (index.html
 // ~line 4493-4523: kerb, bollards, deck, pilings, lamp). The deck gets a real
@@ -29,6 +30,21 @@ export function Marina() {
 
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[PIER_LEN / 2, 0.2, 4.5]} position={[SHORE_X + PIER_LEN / 2 - 2, 0.5, PIER_Z]} />
+      </RigidBody>
+
+      {/* invisible shore wall — blocks cars/bikes from driving into the water
+          anywhere along the coast (pier gap at PIER_Z±4.5 stays open so the
+          dock above is still reachable by land). City.tsx streams chunks
+          unbounded in z, so this runs the full length rather than a fixed
+          span — no matter how far along the coast you drive, it holds.
+          Taller than the controller's 0.3 autostep so it stops rather than
+          climbs. */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.5, 0.6, 50000]} position={[SHORE_X - 1.1, 0.6, PIER_Z - 4.5 - 50000]} />
+        <CuboidCollider args={[0.5, 0.6, 50000]} position={[SHORE_X - 1.1, 0.6, PIER_Z + 4.5 + 50000]} />
+        {/* closes the pier gap for cars/bikes only — the player still walks
+            through here to reach the dock and board the boat */}
+        <CuboidCollider args={[0.5, 0.6, 4.5]} position={[SHORE_X - 1.1, 0.6, PIER_Z]} collisionGroups={VEHICLE_ONLY} />
       </RigidBody>
       <mesh position={[SHORE_X + PIER_LEN / 2 - 2, 0.5, PIER_Z]} receiveShadow castShadow>
         <boxGeometry args={[PIER_LEN, 0.4, 9]} />

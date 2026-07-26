@@ -31,6 +31,7 @@ import { PoliceCar } from "@/components/PoliceCar";
 import { PatrolBoat } from "@/components/PatrolBoat";
 import { PoliceStation } from "@/components/PoliceStation";
 import { Marina } from "@/components/Marina";
+import { Props } from "@/components/Props";
 
 const CYCLABLE = new Set(["car", "bike", "boat"]);
 
@@ -119,6 +120,7 @@ export default function Game() {
             <PatrolBoat />
             <PoliceStation />
             <Marina />
+            <Props />
             <Traffic />
             <Pedestrians />
             <Player />

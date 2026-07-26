@@ -12,7 +12,8 @@ import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
-import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
+import { checkCrashDebris } from "@/lib/debris";
+import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
 
@@ -32,6 +33,7 @@ export function Bike() {
   const [save] = useState(() => loadSave()?.vehicles.bike ?? null);
   const bike = useRef<CarState>({ h: save?.h ?? 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
+  const crashCooldown = useRef(0);
   const camPos = useRef(new THREE.Vector3(-20, 4, -10));
   const camLook = useRef(new THREE.Vector3());
   const controllerRef = useRef<KinematicCharacterController | null>(null);
@@ -85,7 +87,9 @@ export function Bike() {
     );
 
     fallSpeed.current += GRAVITY_PULL * d;
-    controller.computeColliderMovement(collider, { x: dx, y: fallSpeed.current * d, z: dz });
+    // see Car.tsx: EXCLUDE_DYNAMIC lets the bike plow through props instead of
+    // sliding/stopping on them, while the solver still shoves the prop aside.
+    controller.computeColliderMovement(collider, { x: dx, y: fallSpeed.current * d, z: dz }, QueryFilterFlags.EXCLUDE_DYNAMIC);
     const grounded = controller.computedGrounded();
     if (grounded) fallSpeed.current = 0;
     const movement = controller.computedMovement();
@@ -93,6 +97,10 @@ export function Bike() {
     const t = body.translation();
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
     body.setNextKinematicTranslation(nextPos);
+
+    if (isActive) {
+      checkCrashDebris(crashCooldown, d, { x: dx, z: dz }, { x: movement.x, z: movement.z }, Math.abs(bike.current.speed), nextPos, bike.current.h);
+    }
 
     // lean into the turn — same formula as the original's isBike branch
     // (rotation.z = -steer * speed-scaled * 0.45), purely visual

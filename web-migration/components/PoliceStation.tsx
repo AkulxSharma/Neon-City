@@ -9,12 +9,10 @@ import * as THREE from "three";
 // POLICE HARBOR STATION — direct port of the original's station-house group
 // (index.html ~line 5931-5972: pad, house, trim, door, sign, flanking
 // beacon poles, painted parking bays), positioned at lib/landmarks.ts's
-// corrected POLICE HARBOR coordinate (see that file's Milestone 11 comment
-// for why it moved off the original's raw, unconverted x:450). Always
-// mounted — City.tsx's LANDMARK_CHUNKS exemption already keeps random
-// buildings off this spot automatically, same mechanism as every other
-// landmark, now that the coordinate is a real on-land chunk.
-const PX = 0;
+// POLICE HARBOR coordinate (the original's raw x:450). Always mounted —
+// City.tsx's LANDMARK_CHUNKS exemption already keeps random buildings off
+// this spot automatically, same mechanism as every other landmark.
+const PX = 450;
 const PZ = 50;
 const PW = 64;
 const PD = 40;
