@@ -100,6 +100,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   setNavTarget: (l) => set({ navTarget: l, mapOpen: false }),
   setMapOpen: (open) => set({ mapOpen: open }),
   setInClub: (v) => set({ inClub: v }),
+  setStolenCar: (v) => set({ stolenCar: v }),
   vehicleName: () => {
     const a = get().active;
     return a === "foot" ? "ON FOOT" : VEHICLE_NAMES[a];
