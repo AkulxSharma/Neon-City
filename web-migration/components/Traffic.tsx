@@ -135,10 +135,15 @@ const LANE_OFFSET = 3; // sideways shift off the road centreline (road is 20 wid
 // standing in the road. worldState.px/pz IS the on-foot position whenever
 // `foot` is the active mode, so no new plumbing is needed to find them.
 const obstacles: { x: number; z: number }[] = [];
+const footPos = { x: 0, z: 0 }; // scratch, so the on-foot check allocates nothing per frame
 function laneBlocked(lane: Lane, nextPos: number, dir: number): boolean {
   obstacles.length = 0; // reused across frames/cars — never reallocated
   obstacles.push(vehicleState.car, vehicleState.bike, vehicleState.policeCar);
-  if (useHudStore.getState().active === "foot") obstacles.push(worldState.pos());
+  if (useHudStore.getState().active === "foot") {
+    footPos.x = worldState.px;
+    footPos.z = worldState.pz;
+    obstacles.push(footPos);
+  }
   for (const v of obstacles) {
     const along = lane.axis === "x" ? v.x : v.z;
     const across = lane.axis === "x" ? v.z : v.x;
