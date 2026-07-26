@@ -199,9 +199,7 @@ export function Car() {
       {/* keyed on the stolen paint so the mesh remounts when you take over a
           traffic car — CarMesh pins colour/style at mount (useState), so a
           prop change alone would not repaint an already-mounted body */}
-      <group ref={meshRef}>
-        <StolenAwareCarMesh />
-      </group>
+      <StolenAwareCarMesh />
     </RigidBody>
   );
 }
