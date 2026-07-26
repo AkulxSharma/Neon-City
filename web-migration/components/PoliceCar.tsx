@@ -69,7 +69,7 @@ export function PoliceCar() {
 
     if (isActive && teleportRequest.pending) {
       teleportRequest.pending = false;
-      body.setTranslation({ x: teleportRequest.x, y: 1, z: teleportRequest.z }, true);
+      body.setTranslation({ x: teleportRequest.x, y: RIDE_HEIGHT, z: teleportRequest.z }, true);
       car.current.h = teleportRequest.h;
       car.current.speed = 0;
       car.current.vLat = 0;
