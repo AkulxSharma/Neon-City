@@ -217,12 +217,18 @@ const SEDAN_COLORS = [
 
 // The whole silhouette now lives in components/SupercarBody.tsx (shared with
 // PoliceCar.tsx); this just picks paint + roofline for one instance.
-export function CarMesh({ color, detail = "high" }: { color?: string; detail?: Detail } = {}) {
+export function CarMesh({
+  color,
+  style,
+  detail = "high",
+}: { color?: string; style?: CarStyle; detail?: Detail } = {}) {
   // random-once-at-mount, not a memo: neither value changes after mount for
   // any given instance, and useState's lazy initializer is the sanctioned
   // place for a one-time impure value (Math.random) — a plain useMemo
-  // re-running is not guaranteed not to happen more than once
+  // re-running is not guaranteed not to happen more than once.
+  // Both fall back to a roll only when the caller doesn't pin them; Traffic.tsx
+  // and the stolen-car path below both pin, so their cars are stable.
   const [bodyColor] = useState(() => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)]);
-  const [style] = useState(() => styleFor(Math.random() * 300));
-  return <SupercarBody color={bodyColor} style={style} detail={detail} />;
+  const [ownStyle] = useState(() => styleFor(Math.random() * 300));
+  return <SupercarBody color={color ?? bodyColor} style={style ?? ownStyle} detail={detail} />;
 }
