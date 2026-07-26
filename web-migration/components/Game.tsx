@@ -26,6 +26,7 @@ import { loadSave, saveGame } from "@/lib/saveGame";
 import { clubDoorAction } from "@/lib/club";
 import { toggleVehicleFoot } from "@/lib/player";
 import { boatSwapAction } from "@/lib/boatSwap";
+import { stealTrafficAction } from "@/lib/steal";
 import { PoliceCar } from "@/components/PoliceCar";
 import { PatrolBoat } from "@/components/PatrolBoat";
 import { PoliceStation } from "@/components/PoliceStation";
