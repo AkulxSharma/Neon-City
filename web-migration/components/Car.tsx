@@ -195,7 +195,10 @@ export function Car() {
         args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]}
         position={[0, carBox.y / 2 - RIDE_HEIGHT, 0]}
       />
-      <CarMesh />
+      {/* keyed on the stolen paint so the mesh remounts when you take over a
+          traffic car — CarMesh pins colour/style at mount (useState), so a
+          prop change alone would not repaint an already-mounted body */}
+      <StolenAwareCarMesh />
     </RigidBody>
   );
 }
