@@ -123,12 +123,14 @@ export function Car() {
 
     const t = body.translation();
     // TEMP DEBUG — remove before final push
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && meshRef.current) {
+      const box = new THREE.Box3().setFromObject(meshRef.current);
       (window as unknown as { __carDbg: unknown }).__carDbg = {
         bodyY: t.y,
         grounded,
         colliderY: collider.translation().y,
-        colliderHalfY: (collider as unknown as { halfExtents?: () => { y: number } }).halfExtents?.().y,
+        meshMinY: box.min.y,
+        meshMaxY: box.max.y,
       };
     }
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
