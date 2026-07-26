@@ -78,7 +78,8 @@ export default function Game() {
       initAudio(); // no-ops once already initialized; needs a real user gesture, so first key does it
       const hud = useHudStore.getState();
       if (e.code === "KeyE") {
-        if (!clubDoorAction() && !boatSwapAction()) toggleVehicleFoot();
+        // owned vehicles win over hijacking a passing NPC, so the steal is last
+        if (!clubDoorAction() && !boatSwapAction() && !toggleVehicleFoot()) stealTrafficAction();
       } else if (e.code === "KeyB") {
         hud.toggleActive();
         hud.showMsg("SWITCHED TO: " + hud.vehicleName());
