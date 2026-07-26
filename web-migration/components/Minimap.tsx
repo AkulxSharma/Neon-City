@@ -122,6 +122,7 @@ export function Minimap() {
 
       ctx.fillStyle = "#ff6a4a";
       for (const t of trafficPositions) {
+        if (t.stolen) continue; // the player is driving it — it's not traffic any more
         ctx.beginPath();
         ctx.arc(t.x, t.z, 3.4 / S, 0, Math.PI * 2);
         ctx.fill();
