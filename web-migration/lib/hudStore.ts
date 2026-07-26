@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { LANDMARKS, type Landmark } from "@/lib/landmarks";
+import type { CarStyle } from "@/components/SupercarBody";
 
 export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat";
 export type ActiveMode = VehicleKind | "foot";
