@@ -161,11 +161,33 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
   const recruited = useRef(false);
   const convoyPos = useRef<{ x: number; z: number } | null>(null);
   const lightRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const meshRef = useRef<THREE.Group>(null);
 
   useFrame((state, dt) => {
     const body = bodyRef.current;
     if (!body) return;
     const d = Math.min(dt, 0.05);
+    const slot = trafficPositions[index];
+
+    // stolen (lib/steal.ts): the player is driving this car now, so the NPC
+    // copy hides and stops being an obstacle. Parked far off-grid rather than
+    // just made invisible — an invisible car still blocks the lane behind it
+    // and still draws a minimap blip.
+    if (slot.stolen) {
+      if (meshRef.current) meshRef.current.visible = false;
+      slot.respawnIn -= d;
+      slot.x = Number.POSITIVE_INFINITY;
+      slot.z = Number.POSITIVE_INFINITY;
+      if (slot.respawnIn <= 0) {
+        slot.stolen = false;
+        // re-enter from whichever end it was heading away from
+        pos.current = dir.current > 0 ? lane.min : lane.max;
+        recruited.current = false;
+        convoyPos.current = null;
+      }
+      return;
+    }
+    if (meshRef.current) meshRef.current.visible = true;
 
     // background lane math always advances, even while convoying, so dropping
     // out of the convoy resumes patrol from a live position instead of
