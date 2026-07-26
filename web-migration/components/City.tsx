@@ -960,6 +960,110 @@ const SHOP_TYPES: { name: string; category: ShopCategory }[] = [
 ];
 const GARAGE_MAT = new THREE.MeshStandardMaterial({ color: "#8a8578", roughness: 0.85 });
 const GARAGE_INTERIOR_MAT = new THREE.MeshStandardMaterial({ color: "#26241f", roughness: 0.9 });
+const TIRE_MAT = new THREE.MeshStandardMaterial({ color: "#141414", roughness: 0.95 });
+
+// Per-name exterior dressing so specific shops (bank/pet shop/garage) read as
+// that business at a glance, not just a differently-worded poster on the
+// same box — a curated few, not every one of the 20 SHOP_TYPES, since most
+// (market/salon/diner/...) already read fine off the poster+category alone.
+const MARBLE_MAT = new THREE.MeshStandardMaterial({ color: "#e8e2d0", roughness: 0.25, metalness: 0.1 });
+const GOLD_MAT = new THREE.MeshStandardMaterial({ color: "#c9a227", roughness: 0.3, metalness: 0.8 });
+function BankDecor({ x, z, w, d, h }: { x: number; z: number; w: number; d: number; h: number }) {
+  const frontZ = z + d / 2;
+  const colX = w * 0.32;
+  return (
+    <group>
+      {/* wide marble plinth you step up onto, reads as "important building" from the street */}
+      <mesh position={[x, 0.15, frontZ + 0.5]} material={MARBLE_MAT} receiveShadow>
+        <boxGeometry args={[w * 0.95, 0.3, 1.4]} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[x + side * colX, h * 0.42, frontZ + 0.15]} material={MARBLE_MAT} castShadow>
+          <cylinderGeometry args={[0.32, 0.36, h * 0.82, 10]} />
+        </mesh>
+      ))}
+      {/* gold trim bar above the entrance */}
+      <mesh position={[x, h * 0.85, frontZ + 0.04]} material={GOLD_MAT}>
+        <boxGeometry args={[w * 0.9, 0.12, 0.08]} />
+      </mesh>
+    </group>
+  );
+}
+
+const DOG_FUR_MATS = ["#c9a06a", "#3a2a1a", "#e8e4da"].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
+function Dog({ x, z, rotY, matIdx }: { x: number; z: number; rotY: number; matIdx: number }) {
+  const fur = DOG_FUR_MATS[matIdx % DOG_FUR_MATS.length];
+  return (
+    <group position={[x, 0, z]} rotation={[0, rotY, 0]}>
+      <mesh position={[0, 0.26, 0]} material={fur} castShadow>
+        <boxGeometry args={[0.26, 0.24, 0.55]} />
+      </mesh>
+      <mesh position={[0, 0.36, 0.32]} material={fur} castShadow>
+        <boxGeometry args={[0.2, 0.2, 0.2]} />
+      </mesh>
+      <mesh position={[0, 0.3, 0.42]} material={fur} castShadow>
+        <boxGeometry args={[0.1, 0.09, 0.1]} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 0.08, 0.46, 0.36]} material={fur}>
+          <boxGeometry args={[0.06, 0.08, 0.03]} />
+        </mesh>
+      ))}
+      {[
+        [-0.09, -0.2],
+        [0.09, -0.2],
+        [-0.09, 0.18],
+        [0.09, 0.18],
+      ].map(([lx, lz], i) => (
+        <mesh key={i} position={[lx, 0.09, lz]} material={fur}>
+          <boxGeometry args={[0.08, 0.18, 0.08]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.3, -0.32]} rotation={[0.6, 0, 0]} material={fur}>
+        <boxGeometry args={[0.06, 0.22, 0.06]} />
+      </mesh>
+    </group>
+  );
+}
+// thin wireframe box reads as chain-link/wire cage bars at driving distance,
+// far cheaper than a real lattice of individual bar meshes
+const CAGE_WIRE_MAT = new THREE.MeshBasicMaterial({ color: "#3a3d42", wireframe: true });
+const CAGE_FLOOR_MAT = new THREE.MeshStandardMaterial({ color: "#5a5248", roughness: 0.95 });
+function Cage({ x, z, size }: { x: number; z: number; size: number }) {
+  return (
+    <group position={[x, size / 2, z]}>
+      <mesh material={CAGE_WIRE_MAT}>
+        <boxGeometry args={[size, size, size]} />
+      </mesh>
+      <mesh position={[0, -size / 2 + 0.02, 0]} material={CAGE_FLOOR_MAT}>
+        <boxGeometry args={[size * 0.96, 0.04, size * 0.96]} />
+      </mesh>
+    </group>
+  );
+}
+function PetShopDecor({ x, z, w, d }: { x: number; z: number; w: number; d: number }) {
+  const frontZ = z + d / 2;
+  return (
+    <group>
+      <Dog x={x - w * 0.28} z={frontZ + 0.7} rotY={0.4} matIdx={0} />
+      <Dog x={x - w * 0.1} z={frontZ + 0.9} rotY={-0.3} matIdx={1} />
+      <Cage x={x + w * 0.22} z={frontZ + 0.5} size={0.55} />
+      <Cage x={x + w * 0.22 + 0.65} z={frontZ + 0.5} size={0.55} />
+    </group>
+  );
+}
+
+function TireStack({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      {[0.16, 0.44, 0.72].map((y, i) => (
+        <mesh key={i} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} material={TIRE_MAT} castShadow>
+          <torusGeometry args={[0.28, 0.13, 8, 16]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 
 // Baked poster texture per shop (name + a simple category icon + a worn
 // border), not a flat colour box with 3D text floating in front of it — a
@@ -1185,16 +1289,19 @@ function ShopBuilding({ spec: { x, z, w, d, h, colorIdx } }: { spec: BuildingSpe
           <boxGeometry args={[w * 0.94, h * 0.8, 0.1]} />
         </mesh>
         <ShopSign x={x} y={h + 0.4} z={z + d / 2 + 0.05} w={w} colorIdx={colorIdx} name={name} category={category} />
+        <TireStack x={x - w / 2 + 0.5} z={backCz - backD / 2 + 0.5} />
       </group>
     );
   }
 
   const storefrontH = Math.min(1.8, h * 0.5);
   const glassMat = GLASS_MATS[colorIdx % GLASS_MATS.length];
+  const isBank = name === "BANK";
+  const isPetShop = name === "PET SHOP";
   return (
     <group>
       <RigidBody type="fixed" colliders="cuboid">
-        <mesh castShadow receiveShadow position={[x, h / 2, z]} material={bodyMat}>
+        <mesh castShadow receiveShadow position={[x, h / 2, z]} material={isBank ? MARBLE_MAT : bodyMat}>
           <boxGeometry args={[w, h, d]} />
         </mesh>
       </RigidBody>
@@ -1211,6 +1318,8 @@ function ShopBuilding({ spec: { x, z, w, d, h, colorIdx } }: { spec: BuildingSpe
       )}
       <ShopSign x={x} y={storefrontH + 0.5} z={signZ} w={w} colorIdx={colorIdx} name={name} category={category} />
       <SideGraffiti x={x} z={z} w={w} d={d} h={h} seed={1} />
+      {isBank && <BankDecor x={x} z={z} w={w} d={d} h={h} />}
+      {isPetShop && <PetShopDecor x={x} z={z} w={w} d={d} />}
     </group>
   );
 }
