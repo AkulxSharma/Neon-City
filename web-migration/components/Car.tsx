@@ -14,7 +14,7 @@ import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
 import { SHORE_X, DROWN_RESPAWN } from "@/lib/marina";
-import { SupercarBody, styleFor, RIDE_HEIGHT, type Detail } from "@/components/SupercarBody";
+import { SupercarBody, styleFor, RIDE_HEIGHT, type CarStyle, type Detail } from "@/components/SupercarBody";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12; // m/s^2 fed into the character controller so it stays snapped to the ground
