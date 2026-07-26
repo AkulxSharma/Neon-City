@@ -79,6 +79,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   waypointDeg: 0,
   mapOpen: false,
   inClub: false,
+  stolenCar: null,
   setHud: (speedKmh, grounded) => set({ speedKmh, grounded }),
   // no-ops while on foot — B is this build's own quick-switch between owned
   // vehicles, not a thing while walking (mount via E near a vehicle instead)
