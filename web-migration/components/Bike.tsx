@@ -13,9 +13,11 @@ import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
+import { SHORE_X, DROWN_RESPAWN } from "@/lib/marina";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
+const DROWN_LIMIT = 2; // seconds past the shore before respawn — mirrors Player.tsx's on-foot drowning
 
 // Same ground/collision machinery as Car.tsx (a bike still needs the floor —
 // see the original: bikes go through the identical drive-loop physics as
@@ -33,6 +35,7 @@ export function Bike() {
   const [save] = useState(() => loadSave()?.vehicles.bike ?? null);
   const bike = useRef<CarState>({ h: save?.h ?? 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
+  const drownTime = useRef(0);
   const crashCooldown = useRef(0);
   const camPos = useRef(new THREE.Vector3(-20, 4, -10));
   const camLook = useRef(new THREE.Vector3());
@@ -96,6 +99,32 @@ export function Bike() {
 
     const t = body.translation();
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
+
+    // drowning safety net — see Car.tsx for why this is unreachable in normal
+    // play but still worth a respawn instead of falling forever
+    if (nextPos.x >= SHORE_X) {
+      drownTime.current += d;
+      if (drownTime.current > DROWN_LIMIT) {
+        drownTime.current = 0;
+        body.setTranslation({ x: DROWN_RESPAWN.x, y: 1, z: DROWN_RESPAWN.z }, true);
+        bike.current.h = DROWN_RESPAWN.h;
+        bike.current.speed = 0;
+        bike.current.vLat = 0;
+        fallSpeed.current = 0;
+        vehicleState.bike.x = DROWN_RESPAWN.x;
+        vehicleState.bike.z = DROWN_RESPAWN.z;
+        vehicleState.bike.h = DROWN_RESPAWN.h;
+        if (isActive) {
+          worldState.px = DROWN_RESPAWN.x;
+          worldState.pz = DROWN_RESPAWN.z;
+          worldState.heading = DROWN_RESPAWN.h;
+        }
+        return;
+      }
+    } else {
+      drownTime.current = 0;
+    }
+
     body.setNextKinematicTranslation(nextPos);
 
     if (isActive) {

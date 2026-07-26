@@ -17,7 +17,7 @@ import { debrisQueue, type DebrisBurst } from "@/lib/debris";
 // the obstacle SWEEP ignores these (driving doesn't slide/stop on a cone),
 // while that solver push still happens every physics step regardless.
 
-type PropKind = "cone" | "barrel" | "crate";
+type PropKind = "cone" | "barrel" | "crate" | "barrier";
 interface PropSpec {
   x: number;
   z: number;
@@ -45,6 +45,18 @@ const PROP_SPECS: PropSpec[] = [
   { x: -15, z: 15, kind: "crate" },
   { x: 25, z: 5, kind: "crate" },
   { x: -8, z: -25, kind: "cone" },
+
+  // two construction zones along the main lanes (Traffic.tsx's LANES) — off
+  // the fixed patrol centreline, on the shoulder, so they read as roadwork
+  // the player has to notice/steer around rather than blocking the AI's path
+  { x: 46, z: 28, kind: "barrier" },
+  { x: 44, z: 24, kind: "cone" },
+  { x: 44, z: 32, kind: "cone" },
+  { x: 42, z: 28, kind: "crate" },
+  { x: -46, z: -38, kind: "barrier" },
+  { x: -44, z: -34, kind: "cone" },
+  { x: -44, z: -42, kind: "cone" },
+  { x: -42, z: -38, kind: "barrel" },
 ];
 
 // tuned so a tap sends it rolling, not jittering or flying off-map — mass is
@@ -53,6 +65,7 @@ const PROP_TUNING: Record<PropKind, { mass: number; restitution: number; frictio
   cone: { mass: 2, restitution: 0.15, friction: 0.8 },
   barrel: { mass: 12, restitution: 0.2, friction: 0.6 },
   crate: { mass: 8, restitution: 0.1, friction: 0.7 },
+  barrier: { mass: 6, restitution: 0.1, friction: 0.8 },
 };
 
 function ConeMesh() {
@@ -79,10 +92,38 @@ function CrateMesh() {
     </mesh>
   );
 }
+// construction barricade — orange board with two white stripes, same read as
+// the cone/barrel/crate: one prop, one glance, no separate warning sign needed
+function BarrierMesh() {
+  return (
+    <group>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[1.1, 0.5, 0.12]} />
+        <meshStandardMaterial color="#e8631c" roughness={0.6} />
+      </mesh>
+      <mesh position={[0, 0.13, 0.065]}>
+        <boxGeometry args={[0.9, 0.1, 0.01]} />
+        <meshStandardMaterial color="#f2f0ea" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, -0.13, 0.065]}>
+        <boxGeometry args={[0.9, 0.1, 0.01]} />
+        <meshStandardMaterial color="#f2f0ea" roughness={0.5} />
+      </mesh>
+    </group>
+  );
+}
 
 function Prop({ spec }: { spec: PropSpec }) {
   const bodyRef = useRef<RapierRigidBody>(null);
-  const home = useMemo(() => new THREE.Vector3(spec.x, spec.kind === "barrel" ? 0.45 : spec.kind === "crate" ? 0.25 : 0.3, spec.z), [spec]);
+  const home = useMemo(
+    () =>
+      new THREE.Vector3(
+        spec.x,
+        spec.kind === "barrel" ? 0.45 : spec.kind === "crate" ? 0.25 : spec.kind === "barrier" ? 0.25 : 0.3,
+        spec.z,
+      ),
+    [spec],
+  );
   const tuning = PROP_TUNING[spec.kind];
 
   useFrame(() => {
@@ -98,7 +139,7 @@ function Prop({ spec }: { spec: PropSpec }) {
     }
   });
 
-  const colliders = spec.kind === "crate" ? "cuboid" : spec.kind === "barrel" ? "hull" : "hull";
+  const colliders = spec.kind === "crate" || spec.kind === "barrier" ? "cuboid" : "hull";
 
   return (
     <RigidBody
@@ -113,6 +154,7 @@ function Prop({ spec }: { spec: PropSpec }) {
       {spec.kind === "cone" && <ConeMesh />}
       {spec.kind === "barrel" && <BarrelMesh />}
       {spec.kind === "crate" && <CrateMesh />}
+      {spec.kind === "barrier" && <BarrierMesh />}
     </RigidBody>
   );
 }

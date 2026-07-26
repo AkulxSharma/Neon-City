@@ -12,7 +12,7 @@ import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { WATER_LEVEL } from "@/components/Water";
-import { pierPush } from "@/lib/marina";
+import { pierPush, LAND_EDGE_X } from "@/lib/marina";
 import { BoatMirrors } from "@/components/BoatMirrors";
 
 // A hull has no floor to snap to, so unlike Car.tsx this doesn't use Rapier's
@@ -27,7 +27,14 @@ export function Boat() {
   const keys = useKeyboard();
   const { camera } = useThree();
 
-  const [save] = useState(() => loadSave()?.vehicles.boat ?? null);
+  // A save with x on dry land (e.g. an old/corrupted entry from before the
+  // boat's default spawn matched the water) would otherwise beach the hull
+  // right at the player's spawn — reject it and fall back to the dock instead
+  // of trusting it blindly, same call the drowning respawn below makes.
+  const [save] = useState(() => {
+    const s = loadSave()?.vehicles.boat ?? null;
+    return s && s.x >= LAND_EDGE_X ? s : null;
+  });
   const boat = useRef<CarState>({ h: save?.h ?? Math.PI, speed: 0, vLat: 0, steerAng: 0 });
   const pos = useRef({ x: save?.x ?? 595, z: save?.z ?? 0 });
   const camPos = useRef(new THREE.Vector3(30, 5, -10));

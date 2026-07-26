@@ -13,11 +13,14 @@ import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
+import { SHORE_X, DROWN_RESPAWN } from "@/lib/marina";
+import { SupercarBody, styleFor, type Detail } from "@/components/SupercarBody";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12; // m/s^2 fed into the character controller so it stays snapped to the ground
 const NITRO_MAX = 10; // seconds of fuel — same numbers as the original's NITRO_MAX/NITRO_BOOST
 const NITRO_BOOST = 41.7; // +150 km/h over the car's normal top speed while boosting
+const DROWN_LIMIT = 2; // seconds past the shore before respawn — mirrors Player.tsx's on-foot drowning
 
 export function Car() {
   const { world } = useRapier();
@@ -33,6 +36,7 @@ export function Car() {
   // original game's per-vehicle object, kept in a ref so updating it never re-renders
   const car = useRef<CarState>({ h: save?.h ?? 0, speed: 0, vLat: 0, steerAng: 0 });
   const fallSpeed = useRef(0);
+  const drownTime = useRef(0);
   const crashCooldown = useRef(0);
   const nitroFuel = useRef(NITRO_MAX);
   const camPos = useRef(new THREE.Vector3(0, 4, -10));
@@ -119,6 +123,33 @@ export function Car() {
 
     const t = body.translation();
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
+
+    // drowning safety net: the shore wall (Marina.tsx) keeps this unreachable
+    // in normal play, but respawn at POLICE HARBOR instead of leaving the car
+    // falling forever if it ever ends up past the coastline
+    if (nextPos.x >= SHORE_X) {
+      drownTime.current += d;
+      if (drownTime.current > DROWN_LIMIT) {
+        drownTime.current = 0;
+        body.setTranslation({ x: DROWN_RESPAWN.x, y: 1, z: DROWN_RESPAWN.z }, true);
+        car.current.h = DROWN_RESPAWN.h;
+        car.current.speed = 0;
+        car.current.vLat = 0;
+        fallSpeed.current = 0;
+        vehicleState.car.x = DROWN_RESPAWN.x;
+        vehicleState.car.z = DROWN_RESPAWN.z;
+        vehicleState.car.h = DROWN_RESPAWN.h;
+        if (isActive) {
+          worldState.px = DROWN_RESPAWN.x;
+          worldState.pz = DROWN_RESPAWN.z;
+          worldState.heading = DROWN_RESPAWN.h;
+        }
+        return;
+      }
+    } else {
+      drownTime.current = 0;
+    }
+
     body.setNextKinematicTranslation(nextPos);
 
     if (isActive) {
@@ -162,55 +193,29 @@ export function Car() {
   );
 }
 
-// Original sedan silhouette, approximated: low wide body + a set-back cabin/roof,
-// four wheels, emissive head/tail lights (bright enough to trip the bloom pass'
-// luminance threshold — see Game.tsx).
-const SEDAN_COLORS = ["#8b93a1", "#3a3f4a", "#7a2020", "#1f4a7a", "#cfd3da", "#2a5a3a", "#5a4a7a"];
+// Supercar paint options — deep metallics plus a few loud hero colours, the
+// palette an exotic actually ships in, not the grey/navy fleet the old sedan
+// silhouette used.
+const SEDAN_COLORS = [
+  "#d81f26", // rosso
+  "#f2b100", // giallo
+  "#1d5fd8", // blu
+  "#16171b", // nero
+  "#e8eaee", // bianco
+  "#1f9e6e", // verde
+  "#f26a1b", // arancio
+  "#7b2ff2", // viola
+  "#8f959f", // grigio
+];
 
-export function CarMesh({ color }: { color?: string } = {}) {
-  // random-once-at-mount, not a memo: color never changes after mount for any
-  // given instance, and useState's lazy initializer is the sanctioned place
-  // for a one-time impure value (Math.random) — a plain useMemo re-running is
-  // not guaranteed not to happen more than once
+// The whole silhouette now lives in components/SupercarBody.tsx (shared with
+// PoliceCar.tsx); this just picks paint + roofline for one instance.
+export function CarMesh({ color, detail = "high" }: { color?: string; detail?: Detail } = {}) {
+  // random-once-at-mount, not a memo: neither value changes after mount for
+  // any given instance, and useState's lazy initializer is the sanctioned
+  // place for a one-time impure value (Math.random) — a plain useMemo
+  // re-running is not guaranteed not to happen more than once
   const [bodyColor] = useState(() => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)]);
-  // chromeMat, ported from the original's shared wheel-hub material (index.html line 4833)
-  const wheelMat = <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />;
-
-  return (
-    <group>
-      <mesh castShadow position={[0, -0.2, 0]}>
-        <boxGeometry args={[1.85, 0.9, 4.6]} />
-        <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.4} />
-      </mesh>
-      {/* glassMat, ported from the original's shared cab-glass material (index.html line
-          4829); envMap:envCube wiring skipped — this migration has no scene environment map yet */}
-      <mesh castShadow position={[0, 0.53, -0.3]}>
-        <boxGeometry args={[1.5, 0.55, 2.3]} />
-        <meshStandardMaterial color="#3a5068" metalness={0.55} roughness={0.05} transparent opacity={0.32} />
-      </mesh>
-      {[
-        [0.85, -0.62, 1.55],
-        [-0.85, -0.62, 1.55],
-        [0.85, -0.62, -1.55],
-        [-0.85, -0.62, -1.55],
-      ].map((p, i) => (
-        <mesh key={i} position={p as [number, number, number]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.36, 0.36, 0.28, 14]} />
-          {wheelMat}
-        </mesh>
-      ))}
-      {[0.6, -0.6].map((x) => (
-        <mesh key={`hl-${x}`} position={[x, -0.15, 2.28]}>
-          <boxGeometry args={[0.25, 0.15, 0.05]} />
-          <meshBasicMaterial color="#fff6d0" />
-        </mesh>
-      ))}
-      {[0.65, -0.65].map((x) => (
-        <mesh key={`tl-${x}`} position={[x, -0.15, -2.28]}>
-          <boxGeometry args={[0.2, 0.12, 0.05]} />
-          <meshBasicMaterial color="#ff2020" />
-        </mesh>
-      ))}
-    </group>
-  );
+  const [style] = useState(() => styleFor(Math.random() * 300));
+  return <SupercarBody color={bodyColor} style={style} detail={detail} />;
 }

@@ -18,7 +18,6 @@ import { Player } from "@/components/Player";
 import { Club } from "@/components/Club";
 import { ClubInterior } from "@/components/ClubInterior";
 import { AudioEngine } from "@/components/AudioEngine";
-import { LandmarkMarkers } from "@/components/LandmarkMarkers";
 import { WaypointTracker } from "@/components/WaypointTracker";
 import { HUD } from "@/components/HUD";
 import { useHudStore } from "@/lib/hudStore";
@@ -42,7 +41,7 @@ function DynamicBloom() {
   useFrame(() => {
     if (ref.current) ref.current.intensity = 0.18 + skyState.nightK * 0.72;
   });
-  return <Bloom ref={ref} luminanceThreshold={0.82} luminanceSmoothing={0.2} mipmapBlur />;
+  return <Bloom ref={ref} luminanceThreshold={0.7} luminanceSmoothing={0.2} mipmapBlur />;
 }
 
 export default function Game() {
@@ -104,12 +103,11 @@ export default function Game() {
 
   return (
     <div style={{ position: "fixed", inset: 0 }}>
-      <Canvas shadows dpr={1} camera={{ fov: 65, near: 0.1, far: 1000 }}>
+      <Canvas shadows dpr={1} camera={{ fov: 65, near: 0.1, far: 1000 }} gl={{ toneMappingExposure: 1.5 }}>
         <Suspense fallback={null}>
           <SkyCycle />
           <AudioEngine />
           <WaypointTracker />
-          <LandmarkMarkers />
           <Physics gravity={[0, -9.81, 0]}>
             <City />
             <Water />

@@ -64,14 +64,21 @@ export function SkyCycle() {
       sunRef.current.color.copy(SUN_NIGHT).lerp(SUN_DAY, dayK);
     }
     if (hemiRef.current) hemiRef.current.intensity = 0.18 + dayK * 0.5;
-    // original's renderer.toneMappingExposure=1.08+nightK*0.18 — always above
-    // 1.0, brightest at night to compensate for the dark night palette
+    // brightest at night to compensate for the dark night palette. Base
+    // raised from the original's 1.08 to 1.5 (matches Game.tsx's Canvas gl
+    // prop, so this per-frame set doesn't immediately undo it) — the ported
+    // night palette still read too dark even at the original's own numbers.
     // eslint-disable-next-line react-hooks/immutability -- see note above useFrame
-    gl.toneMappingExposure = 1.08 + nightK * 0.18;
+    gl.toneMappingExposure = 1.5 + nightK * 0.18;
   });
 
   return (
     <>
+      {/* flat fill so shadowed sides of buildings/the car never go fully
+          black — hemi+directional alone leaves anything facing away from
+          both lit only by bloom/neon, which reads as patchy darkness rather
+          than an evenly (if dimly) lit night city */}
+      <ambientLight intensity={0.3} />
       {/* original's hemi: sky-color-from-above / ground-color-from-below,
           reads much richer than a flat ambient */}
       <hemisphereLight ref={hemiRef} color={0xc8e0ff} groundColor={0x3a3020} intensity={0.18} />

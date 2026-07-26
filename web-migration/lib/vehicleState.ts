@@ -7,7 +7,7 @@ import type { VehicleKind } from "@/lib/hudStore";
 export const vehicleState: Record<VehicleKind, { x: number; z: number; h: number }> = {
   car: { x: 0, z: 0, h: 0 },
   bike: { x: -20, z: 0, h: 0 },
-  boat: { x: 40, z: 0, h: Math.PI },
+  boat: { x: 595, z: 0, h: Math.PI }, // in the water off EAST MARINA, matches Boat.tsx's own default
   // parked at POLICE HARBOR STATION / the marina dock — see components/PoliceStation.tsx,
   // components/Marina.tsx, and lib/landmarks.ts's POLICE HARBOR / EAST MARINA coordinates
   policeCar: { x: 465, z: 45, h: 0 },

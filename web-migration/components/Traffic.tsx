@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { CarMesh } from "@/components/Car";
+import { PoliceCarMesh } from "@/components/PoliceCar";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
 import { vehicleState } from "@/lib/vehicleState";
@@ -52,6 +53,19 @@ const LANES: Lane[] = [
   // odd-50 road lines) after the shore restore moved it out to (450,50).
   { axis: "x", lane: 50, min: 380, max: 520, speed: 11, color: "#0c0c0e", police: true },
   { axis: "z", lane: 450, min: -30, max: 110, speed: 12, color: "#0c0c0e", police: true },
+
+  // more NPC traffic — a couple more streets, plus a 2nd car on two of the
+  // busiest existing ones (same lane spec, different seed stagger)
+  { axis: "z", lane: 150, min: -85, max: 85, speed: 10, color: "#b33a3a" },
+  { axis: "x", lane: -150, min: -85, max: 85, speed: 9, color: "#4a6a8a" },
+  { axis: "z", lane: -150, min: -85, max: 85, speed: 12, color: "#8a7a3a" },
+  { axis: "x", lane: 50, min: -85, max: 85, speed: 12, color: "#5a5a5a" },
+  { axis: "z", lane: -50, min: -85, max: 85, speed: 9, color: "#3a5a5a" },
+
+  // more patrol cars, out near spawn rather than only around the station,
+  // so you actually run into one without driving out to POLICE HARBOR
+  { axis: "x", lane: -50, min: -85, max: 85, speed: 10, color: "#0c0c0e", police: true },
+  { axis: "z", lane: 50, min: -85, max: 85, speed: 10, color: "#0c0c0e", police: true },
 ];
 
 // read by Minimap.tsx to draw traffic blips — same shared-singleton pattern as
@@ -71,7 +85,8 @@ export function Traffic() {
 const RECRUIT_RADIUS2 = 70 * 70; // matches the original's d2<70*70 land-convoy recruit check
 
 const STOP_DISTANCE = 7; // ahead-of-car braking gap — city sedan is 4.6 long, this clears it plus a margin
-const LANE_HALF_WIDTH = 2.2; // car is 1.85 wide; catches a car parked slightly off-centre in the lane too
+const LANE_HALF_WIDTH = 4.5; // covers either side of the centreline (±LANE_OFFSET) plus car width/slop
+const LANE_OFFSET = 3; // sideways shift off the road centreline (road is 20 wide, this stays well inside it)
 
 // Real vehicle world positions to treat as obstacles — vehicleState.car/bike/
 // policeCar are kept live every frame by their own components regardless of
@@ -121,8 +136,14 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
       }
     }
 
-    const laneX = lane.axis === "x" ? pos.current : lane.lane;
-    const laneZ = lane.axis === "x" ? lane.lane : pos.current;
+    // right-hand-traffic offset: the ping-pong lane reverses direction at
+    // each end instead of running two separate one-way lanes, so a car
+    // travelling +dir and one travelling -dir need to sit on opposite sides
+    // of the centreline (not glued to it) to read as "in a lane" instead of
+    // driving straight down the middle/through oncoming traffic.
+    const side = dir.current > 0 ? LANE_OFFSET : -LANE_OFFSET;
+    const laneX = lane.axis === "x" ? pos.current : lane.lane + side;
+    const laneZ = lane.axis === "x" ? lane.lane + side : pos.current;
     const laneHeading =
       lane.axis === "x" ? (dir.current > 0 ? Math.PI / 2 : -Math.PI / 2) : dir.current > 0 ? 0 : Math.PI;
 
@@ -172,26 +193,21 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
       if (lightRefs.current[1]) lightRefs.current[1].color.set(flashRed ? "#0a1030" : "#2040ff");
     }
 
-    body.setNextKinematicTranslation({ x, y: 0.85, z });
+    body.setNextKinematicTranslation({ x, y: 0.98, z });
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading));
     trafficPositions[index].x = x;
     trafficPositions[index].z = z;
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, 0.85, 0]}>
-      <CarMesh color={lane.color} />
-      {lane.police && (
-        <>
-          <mesh position={[-0.35, 0.86, -0.3]}>
-            <boxGeometry args={[0.6, 0.15, 0.3]} />
-            <meshBasicMaterial ref={(el) => (lightRefs.current[0] = el)} color="#ff2020" />
-          </mesh>
-          <mesh position={[0.35, 0.86, -0.3]}>
-            <boxGeometry args={[0.6, 0.15, 0.3]} />
-            <meshBasicMaterial ref={(el) => (lightRefs.current[1] = el)} color="#2040ff" />
-          </mesh>
-        </>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, 0.98, 0]}>
+      {/* detail="low" — a dozen NPC cars are never seen close enough for
+          spokes/mirrors/occupants to be more than a pixel, and skipping them
+          keeps the draw-call count from tripling as traffic density grew */}
+      {lane.police ? (
+        <PoliceCarMesh lightRefs={lightRefs} detail="low" />
+      ) : (
+        <CarMesh color={lane.color} detail="low" />
       )}
     </RigidBody>
   );

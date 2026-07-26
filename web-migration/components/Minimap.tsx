@@ -5,6 +5,7 @@ import { worldState } from "@/lib/worldState";
 import { trafficPositions } from "@/components/Traffic";
 import { LANDMARKS } from "@/lib/landmarks";
 import { useHudStore } from "@/lib/hudStore";
+import { roadRoute } from "@/lib/route";
 
 // Player-centred, player-up street radar. Streets and landmarks are drawn from
 // the SAME numbers the city is generated with (City.tsx CELL/ROAD_W): asphalt
@@ -124,6 +125,25 @@ export function Minimap() {
         ctx.beginPath();
         ctx.arc(t.x, t.z, 3.4 / S, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      // ---- turn-by-turn route to the active destination, along the roads
+      // (not a straight line through blocks) — same road-grid math as the
+      // asphalt drawn above, see lib/route.ts ----
+      if (nav) {
+        const route = roadRoute(px, pz, nav.x, nav.z);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(route[0].x, route[0].z);
+        for (let i = 1; i < route.length; i++) ctx.lineTo(route[i].x, route[i].z);
+        ctx.strokeStyle = "rgba(10,14,22,0.65)"; // dark halo so the line reads over yellow lane dashes
+        ctx.lineWidth = 5.5 / S;
+        ctx.stroke();
+        ctx.strokeStyle = "#3fa9ff";
+        ctx.lineWidth = 3 / S;
+        ctx.stroke();
       }
       ctx.restore();
 

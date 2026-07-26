@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { RigidBody, CuboidCollider, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
@@ -13,6 +13,7 @@ import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
+import { SupercarBody, type Detail } from "@/components/SupercarBody";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
@@ -143,79 +144,67 @@ export function PoliceCar() {
       position={[save?.x ?? vehicleState.policeCar.x, 1, save?.z ?? vehicleState.policeCar.z]}
     >
       <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
-      <group>
-        {/* bodyMat, ported from the original's blacked-out police-interceptor body
-            (index.html line 5639, makePoliceJeep) */}
-        <mesh castShadow position={[0, -0.18, 0]}>
-          <boxGeometry args={[1.9, 0.95, 4.8]} />
-          <meshStandardMaterial color="#090a0e" metalness={0.45} roughness={0.5} />
-        </mesh>
-        {/* glassMat, ported from the original's shared cab-glass material (index.html line
-            4829); envMap:envCube wiring skipped — this migration has no scene environment map yet */}
-        <mesh castShadow position={[0, 0.56, -0.3]}>
-          <boxGeometry args={[1.55, 0.55, 2.3]} />
-          <meshStandardMaterial color="#3a5068" metalness={0.55} roughness={0.05} transparent opacity={0.32} />
-        </mesh>
-        {/* side mirrors + A-pillar spotlight, ported from makePoliceJeep (index.html
-            lines 5723-5736): trimMat arms, chromeMat housings */}
-        {[-1, 1].map((s) => (
-          <group key={s}>
-            <mesh position={[s * 1.05, 0.5, 0.78]}>
-              <boxGeometry args={[0.18, 0.04, 0.04]} />
-              <meshStandardMaterial color="#101014" metalness={0.6} roughness={0.4} />
-            </mesh>
-            <mesh position={[s * 1.15, 0.52, 0.78]}>
-              <boxGeometry args={[0.05, 0.14, 0.12]} />
-              <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
-            </mesh>
-          </group>
-        ))}
-        <mesh rotation={[0, 0, Math.PI / 2]} position={[-0.93, 0.5, 0.82]}>
-          <cylinderGeometry args={[0.03, 0.03, 0.13, 10]} />
-          <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
-        </mesh>
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[-0.98, 0.62, 0.85]}>
-          <cylinderGeometry args={[0.09, 0.07, 0.1, 14]} />
-          <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
-        </mesh>
-        <mesh position={[-0.98, 0.62, 0.9]}>
-          <circleGeometry args={[0.07, 16]} />
-          <meshBasicMaterial color="#e6ecff" />
-        </mesh>
-        {/* light bar — the flashing squares above are this build's "siren", read by Traffic.tsx */}
-        <mesh position={[-0.35, 0.86, -0.3]}>
-          <boxGeometry args={[0.6, 0.15, 0.3]} />
-          <meshBasicMaterial ref={(el) => (lightRefs.current[0] = el)} color="#ff2020" />
-        </mesh>
-        <mesh position={[0.35, 0.86, -0.3]}>
-          <boxGeometry args={[0.6, 0.15, 0.3]} />
-          <meshBasicMaterial ref={(el) => (lightRefs.current[1] = el)} color="#2040ff" />
-        </mesh>
-        {[
-          [0.87, -0.6, 1.6],
-          [-0.87, -0.6, 1.6],
-          [0.87, -0.6, -1.6],
-          [-0.87, -0.6, -1.6],
-        ].map((p, i) => (
-          <mesh key={i} position={p as [number, number, number]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.37, 0.37, 0.28, 14]} />
-            {/* chromeMat, ported from the original's shared wheel-hub material (index.html line 4833) */}
-            <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
-          </mesh>
-        ))}
-        {[0.62, -0.62].map((x) => (
-          <mesh key={`hl-${x}`} position={[x, -0.13, 2.38]}>
-            <boxGeometry args={[0.25, 0.15, 0.05]} />
-            <meshBasicMaterial color="#fff6d0" />
-          </mesh>
-        ))}
-        {[0.65, -0.65].map((x) => (
-          <mesh key={`tl-${x}`} position={[x, -0.13, -2.38]}>
-            <boxGeometry args={[0.2, 0.12, 0.05]} />
-            <meshBasicMaterial color="#ff2020" />
-          </mesh>
-        ))}
-      </group>
+      <PoliceCarMesh lightRefs={lightRefs} />
     </RigidBody>
+  );
+}
+
+// Police interceptor livery on the shared supercar chassis
+// (components/SupercarBody.tsx) — a pursuit exotic, not a second copy of the
+// bodywork. Split out from the drivable rig above so parked cruisers
+// (components/ParkedPoliceJeep.tsx) reuse the exact same model.
+export function PoliceCarMesh({
+  lightRefs,
+  detail = "high",
+}: {
+  lightRefs: RefObject<(THREE.MeshBasicMaterial | null)[]>;
+  detail?: Detail;
+}) {
+  return (
+    <SupercarBody color="#0b0d12" style="hyper" detail={detail}>
+      {/* white door panels — the two-tone that reads as "police" instantly */}
+      {[1, -1].map((s) => (
+        <group key={`liv${s}`}>
+          <mesh position={[s * 0.9, -0.55, 0.15]}>
+            <boxGeometry args={[0.03, 0.26, 1.5]} />
+            <meshStandardMaterial color="#e9edf2" roughness={0.45} />
+          </mesh>
+          <mesh position={[s * 0.9, -0.55, -1.2]}>
+            <boxGeometry args={[0.03, 0.22, 0.7]} />
+            <meshStandardMaterial color="#2452ff" roughness={0.45} />
+          </mesh>
+        </group>
+      ))}
+      {/* push bar across the nose */}
+      <mesh position={[0, -0.66, 2.44]}>
+        <boxGeometry args={[1.5, 0.09, 0.07]} />
+        <meshStandardMaterial color="#1b1e25" metalness={0.8} roughness={0.35} />
+      </mesh>
+      {[0.45, -0.45].map((x) => (
+        <mesh key={`pb${x}`} position={[x, -0.6, 2.42]}>
+          <boxGeometry args={[0.08, 0.3, 0.06]} />
+          <meshStandardMaterial color="#1b1e25" metalness={0.8} roughness={0.35} />
+        </mesh>
+      ))}
+      {/* low-profile light bar on the roof — the flashing halves below ARE
+          this build's siren, read by Traffic.tsx's convoy recruit check */}
+      <mesh position={[-0.3, 0.05, -0.34]}>
+        <boxGeometry args={[0.56, 0.09, 0.26]} />
+        <meshBasicMaterial ref={(el) => (lightRefs.current[0] = el)} color="#ff2020" />
+      </mesh>
+      <mesh position={[0.3, 0.05, -0.34]}>
+        <boxGeometry args={[0.56, 0.09, 0.26]} />
+        <meshBasicMaterial ref={(el) => (lightRefs.current[1] = el)} color="#2040ff" />
+      </mesh>
+      {/* A-pillar spotlight, ported from makePoliceJeep (index.html ~5723-5736) */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[-0.82, -0.2, 0.62]}>
+        <cylinderGeometry args={[0.08, 0.06, 0.1, 12]} />
+        <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
+      </mesh>
+      <mesh position={[-0.82, -0.2, 0.68]}>
+        <circleGeometry args={[0.06, 16]} />
+        <meshBasicMaterial color="#e6ecff" />
+      </mesh>
+    </SupercarBody>
   );
 }
