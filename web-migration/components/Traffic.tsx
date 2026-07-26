@@ -69,9 +69,43 @@ const LANES: Lane[] = [
   { axis: "z", lane: 50, min: -85, max: 85, speed: 10, color: "#0c0c0e", police: true },
 ];
 
-// read by Minimap.tsx to draw traffic blips — same shared-singleton pattern as
-// skyState/worldState, updated in place (not replaced) so it never allocates
-export const trafficPositions: { x: number; z: number }[] = LANES.map(() => ({ x: 0, z: 0 }));
+// Live per-lane traffic slot — same shared-singleton pattern as skyState/
+// worldState, updated in place (not replaced) so it never allocates. Read by
+// Minimap.tsx for blips and by lib/steal.ts, which needs the pose AND the
+// paint/roofline so the car you drive away looks like the one you walked up to.
+export interface TrafficSlot {
+  x: number;
+  z: number;
+  h: number;
+  color: string;
+  style: CarStyle;
+  police: boolean;
+  // taken by the player (lib/steal.ts): the NPC is hidden and inert until
+  // respawnIn runs out, then it re-enters at the end of its lane as a fresh car
+  stolen: boolean;
+  respawnIn: number;
+}
+
+// styleFor(i) rather than the random roll CarMesh does by default: SupercarBody
+// already documents the style pick as "deterministic so a given traffic lane
+// always renders the same car", but no call site was passing a seed, so every
+// remount reshuffled the street. Seeding it here also makes the roofline
+// knowable from outside, which is what lets a stolen car keep its silhouette.
+export const trafficPositions: TrafficSlot[] = LANES.map((l, i) => ({
+  x: 0,
+  z: 0,
+  h: 0,
+  color: l.color,
+  style: styleFor(i),
+  police: !!l.police,
+  stolen: false,
+  respawnIn: 0,
+}));
+
+// How long a stolen lane stays empty before a replacement car enters. Long
+// enough that the swap doesn't read as a pop-in, short enough that repeatedly
+// stealing doesn't visibly thin the city out.
+const RESPAWN_DELAY = 14;
 
 export function Traffic() {
   return (
