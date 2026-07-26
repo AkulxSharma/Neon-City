@@ -55,6 +55,7 @@ interface HudState {
   setNavTarget: (l: Landmark) => void;
   setMapOpen: (open: boolean) => void;
   setInClub: (v: boolean) => void;
+  setStolenCar: (v: { color: string; style: CarStyle } | null) => void;
   vehicleName: () => string;
 }
 
