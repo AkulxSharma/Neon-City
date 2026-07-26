@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { CarMesh } from "@/components/Car";
+import { RIDE_HEIGHT } from "@/components/SupercarBody";
 import { PoliceCarMesh } from "@/components/PoliceCar";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
