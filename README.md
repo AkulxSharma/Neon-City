@@ -76,7 +76,6 @@ simplification — is in [`web-migration/SUMMARY.md`](web-migration/SUMMARY.md).
 |---|---|
 | `web-migration/` | **The game.** Next.js 16 + React Three Fiber + Rapier + zustand. |
 | `web-migration/SUMMARY.md` | Migration log, milestone by milestone. |
-| `web-migration/AGENTS.md`, `CLAUDE.md` | Instructions for AI coding agents working in this repo. `CLAUDE.md` just imports `AGENTS.md` so every agent reads the same rules. |
 | `index.html` | Legacy single-file build. Deprecated, unmaintained. |
 | `learnings/` | Notes written while building — physics gotchas, coordinate bugs, rendering traps. |
 
