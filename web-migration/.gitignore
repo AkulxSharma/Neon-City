@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI-agent instructions — tracked on purpose while the migration is in progress,
+# so anyone (or any agent) cloning the repo gets the Next.js 16 warning.
+# Uncomment these before a production release to keep them out of the public tree.
+# AGENTS.md
+# CLAUDE.md
