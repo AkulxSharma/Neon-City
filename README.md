@@ -1,68 +1,125 @@
 # Neon City Drive
 
-![Engine](https://img.shields.io/badge/engine-Three.js-000000)
-![Build](https://img.shields.io/badge/build-none%20needed-2ea44f)
-![Offline](https://img.shields.io/badge/offline-yes-blue)
+![Framework](https://img.shields.io/badge/framework-Next.js%2016-000000)
+![Renderer](https://img.shields.io/badge/renderer-React%20Three%20Fiber-blue)
+![Physics](https://img.shields.io/badge/physics-Rapier-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A GTA-inspired, single-player 3D driving game that runs entirely offline in your browser. No installs, no build step, no server, just one self-contained `index.html` powered by Three.js.
+A GTA-inspired, single-player 3D driving game in the browser. Drive, ride, sail
+and walk around an endlessly streaming neon city, steal traffic cars, outrun a
+police convoy, and duck into a nightclub — all rendered in WebGL with real
+physics.
 
-## What problem this solves
+The game lives in [`web-migration/`](web-migration/). The original single-file
+version at the repo root is **deprecated** and kept for reference only — see
+[Legacy build](#legacy-build-indexhtml) below.
 
-Most browser 3D games need a build pipeline, a server, or an account before you can play. Neon City Drive skips all of that: clone the repo, open one file, and you're driving. It's a self-contained demo of what Three.js can do without any tooling in the way, and a sandbox for experimenting with procedural cities, vehicle AI, and day/night lighting.
-
-## Features
-
-- **Endless procedural city.** A chunk-streamed road grid with real NYC building footprints woven into the layout.
-- **Garage of vehicles.** Supercars, muscle cars, bikes, and emergency vehicles, each with its own paint, wheels, and lighting.
-- **Police and emergency system.** Drive a police cruiser and flip on lights and siren with `L`. Nearby patrol cars fall in behind you in convoy formation, and civilian traffic pulls to the roadside to let you through.
-- **Club Neon.** Walk through the door and the game switches to a dance-floor scene, complete with a procedurally generated Bollywood-style soundtrack and NPCs dancing in sync with it.
-- **Day/night cycle** with dynamic headlights, traffic lights, pedestrians, and a persistent car showroom.
-- **Mobile support.** A touch joystick and on-screen buttons appear automatically on iOS/Android browsers.
-- **Autosave.** Progress saves to `localStorage` as you play, no account or server needed.
-
-## Deploy on your device
-
-No build tools required.
+## Run it
 
 ```bash
 git clone https://github.com/ma67-ex/Neon-City.git
-cd Neon-City
-open neon-city-drive/index.html   # macOS
-# or just double-click the file, or serve it locally:
-python3 -m http.server 8000
+cd Neon-City/web-migration
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Then visit `http://localhost:8000/neon-city-drive/` if serving locally.
+Production build: `npm run build && npm run start`.
 
 ## Controls
 
 | Key | Action |
 |---|---|
 | `W A S D` / Arrow keys | Move / drive |
-| `Space` | Jump / handbrake |
-| `2x Space` | Sprint (or hold `Shift`) |
-| `E` | Enter/exit vehicle, open club door |
-| `C` | Cycle camera view |
-| `L` | Headlights auto/on/off (lights & siren in a police vehicle) |
-| `N` | Toggle day / night |
-| `G` | Open map / directions |
+| `Space` | Handbrake (driving) · Jump (on foot) |
+| `Shift` | Nitro (cars only) |
+| `E` | Enter/exit vehicle · open club door · steal the car you're standing next to |
+| `B` | Switch vehicle — car / bike / boat |
+| `C` | Cycle camera — chase / cockpit / hood / cinematic |
+| `G` | Open the map and set a destination |
 | `M` | Mute engine audio |
-| `Q` | Cycle graphics quality |
 
-On mobile, a virtual joystick and on-screen buttons appear automatically.
+On-screen buttons mirror the camera and map controls.
 
-## Tech
+## What's in it
 
-Three.js r128 is inlined directly into `index.html`, along with all textures (canvas-generated) and audio (Web Audio API oscillators). There are no external asset dependencies.
+- **Chunk-streamed city.** Roads with lane markings and sidewalks, zoned
+  districts drawing from 8 building archetypes, parks and trees, road-name
+  signage, posters and graffiti — all streamed in and out as you drive.
+- **Real physics.** Rapier dynamics throughout: vehicle collisions, tree
+  collision, buoyancy for boats, and a character controller for on-foot mode.
+  The arcade driving feel is ported verbatim from the original's hand-tuned
+  math rather than re-derived from forces.
+- **Three vehicle classes.** Cars, bikes, and boats, each with its own handling
+  model. Nitro on cars, buoyancy and heel on boats.
+- **Steal any car.** Walk up to a traffic car and press `E` to take it — paint
+  and silhouette carry over, and a black-and-white hands you the police
+  cruiser with its siren and convoy rig.
+- **Traffic and pedestrians.** Lane-running traffic with collision avoidance
+  that brakes for you on foot, plus crowds walking the sidewalks.
+- **Police.** A police station, patrol cars that fall in behind you in convoy
+  formation, and patrol boats out on the water.
+- **Coast and marina.** The city ends at a shoreline; beyond it is open water
+  with a marina, piers, and drowning physics for anything that isn't a hull.
+- **Club interior.** Walk through the door and the scene switches to a dance
+  floor with its own crowd.
+- **Navigation.** 9 landmarks at the original game's exact coordinates, a
+  minimap, a full-screen map with routing, and a waypoint arrow.
+- **Day/night cycle**, dynamic headlights, HUD with speedo and nitro gauge,
+  procedural audio, and autosave to `localStorage`.
+
+Per-milestone detail — including what is real versus what is still a documented
+simplification — is in [`web-migration/SUMMARY.md`](web-migration/SUMMARY.md).
+
+## Repo layout
+
+| Path | What |
+|---|---|
+| `web-migration/` | **The game.** Next.js 16 + React Three Fiber + Rapier + zustand. |
+| `web-migration/SUMMARY.md` | Migration log, milestone by milestone. |
+| `web-migration/AGENTS.md`, `CLAUDE.md` | Instructions for AI coding agents working in this repo. `CLAUDE.md` just imports `AGENTS.md` so every agent reads the same rules. |
+| `index.html` | Legacy single-file build. Deprecated, unmaintained. |
+| `learnings/` | Notes written while building — physics gotchas, coordinate bugs, rendering traps. |
+
+## Legacy build (`index.html`)
+
+⚠️ **Deprecated and no longer maintained.** It is kept because it still runs and
+because the migration targets parity with it. New features go into
+`web-migration/` only.
+
+It is one self-contained 3.6 MB `index.html` with Three.js r128 inlined, every
+texture generated on a canvas and every sound synthesised with the Web Audio
+API — no build step, no server, no external assets. Open the file, or serve it:
+
+```bash
+python3 -m http.server 8000   # then visit http://localhost:8000/
+```
+
+What it has that the port hasn't reached yet:
+
+- **Real NYC building footprints** woven into the procedural grid.
+- **Weather system** (`V`) and **graphics-quality cycling** (`Q`).
+- **Day/night toggle** (`N`) and headlight modes / police siren (`L`).
+- **Car showroom** and a wider garage, including a Porsche 918 mesh.
+- **Cheat codes** — type `porche` (or `porsche`) to spawn a 918 in front of
+  you, or `boat` to spawn a boat in the nearest water.
+- **Mobile support** — a touch joystick and on-screen buttons appear
+  automatically on iOS/Android.
+- **Club Neon** with a procedurally generated soundtrack and NPCs dancing in
+  time with it.
+
+Its controls follow the same scheme as above, plus `2×Space` to sprint on foot,
+and `H` to hide the in-game help panel.
 
 ## Contributing
 
-Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and note the [Code of Conduct](CODE_OF_CONDUCT.md).
+Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and
+note the [Code of Conduct](CODE_OF_CONDUCT.md). New work belongs in
+`web-migration/`.
 
 ## Security
 
-If you discover a security vulnerability, see [SECURITY.md](SECURITY.md) for how to report it responsibly.
+If you discover a security vulnerability, see [SECURITY.md](SECURITY.md) for how
+to report it responsibly.
 
 ## License
 
