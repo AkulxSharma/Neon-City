@@ -1,6 +1,7 @@
 "use client";
 
 import * as THREE from "three";
+import { LAND_EDGE_X } from "@/lib/marina";
 
 export const WATER_LEVEL = 0.2;
 
@@ -43,11 +44,22 @@ const TILE = 12;
 // instead, which is the same trick the original uses with its 12000-unit slab.
 // Geometry cost is unchanged: a plane is two triangles at any size.
 //
-// It starts AT the shoreline and only extends east/north/south — it must never
-// reach back over the city, because the water sits at WATER_LEVEL (above the
-// road surface) and would flood the streets.
+// It starts at the true edge of the last rendered ground chunk and only
+// extends east/north/south — it must never reach back over the city, because
+// the water sits at WATER_LEVEL (above the road surface) and would flood the
+// streets.
+//
+// Anchored to LAND_EDGE_X (550), NOT the shore-wall constant SHORE_X (600).
+// City.tsx stops rendering ground at chunk ci=5 (CELL=100), whose far edge is
+// 550 — LAND_EDGE_X is that same number, already named in lib/marina.ts for
+// the identical reason (its own comment: "the shore wall/dock MUST start
+// here, not further out at SHORE_X"). The previous 220-wide plane was
+// centred at x=665, so its near edge (555) landed almost flush with 550 by
+// coincidence; enlarging the plane while keeping the OLD anchor (600) turned
+// that near-miss into a real 50-unit gap of bare void between the last solid
+// chunk and the water — the "distance between the land and the sea."
 const SIZE = 6000;
-const CENTER_X = 600 + SIZE / 2; // 600 = SHORE_X, so the near edge lands on the coast
+const CENTER_X = LAND_EDGE_X + SIZE / 2;
 
 seaRippleTex.repeat.set(SIZE / TILE, SIZE / TILE);
 
