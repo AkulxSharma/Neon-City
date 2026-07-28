@@ -8,6 +8,9 @@ const SAVE_KEY = "ncd_web_save_v1";
 interface SaveData {
   active: ActiveMode;
   camMode: CamMode;
+  // optional: saves written before headlights existed won't have it, and the
+  // loader falls back to AUTO rather than crashing on an older save
+  lightMode?: LightMode;
   muted: boolean;
   dayPhase: number;
   vehicles: typeof vehicleState;
