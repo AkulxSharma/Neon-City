@@ -130,7 +130,7 @@ export function Bike() {
     // Out-of-world recovery: if the ground was not streamed in yet and the body
     // stepped through the gap, put it back on the surface here rather than let
     // gravity integrate it to -65,000. See lib/fallGuard.ts.
-    if (fellOutOfWorld(nextPos.y)) {
+    if (fellOutOfWorld(nextPos.y, nextPos.x)) {
       body.setTranslation({ x: nextPos.x, y: 1, z: nextPos.z }, true); // the bike sits at y=1, not the supercar RIDE_HEIGHT
       fallSpeed.current = 0;
       bike.current.speed = 0;

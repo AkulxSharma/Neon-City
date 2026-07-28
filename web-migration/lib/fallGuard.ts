@@ -1,3 +1,5 @@
+import { SHORE_X } from "@/lib/marina";
+
 // Last line of defence against a vehicle ending up under the world.
 //
 // The chunk streamer builds ground a few chunks at a time, so there are
@@ -13,13 +15,18 @@
 export const VOID_Y = -12;
 
 /**
- * If `y` has dropped out of the world, returns the height to snap back to;
- * otherwise returns null and the caller carries on untouched.
+ * True when the body has dropped out of the world and should be put back on
+ * the surface at the same x/z — it reappears on the road it fell through,
+ * which is where the player still is, rather than being yanked across the city.
  *
- * Deliberately preserves x/z — the car reappears on the road it fell through,
- * which is almost always where the player still is, rather than being yanked
- * to a spawn point across the city.
+ * `x` matters because open water has no ground either, so a car driven into
+ * the sea also "falls out of the world" — but that case already belongs to
+ * each vehicle's drown handler, which respawns it ON LAND after DROWN_LIMIT.
+ * Gravity reaches VOID_Y in ~1.4s and DROWN_LIMIT is 2s, so without this gate
+ * the guard fires FIRST and bounces the car back up in the middle of the sea,
+ * over and over, until the drown timer finally wins. Past the shore this
+ * returns false and the drown handler owns the recovery.
  */
-export function fellOutOfWorld(y: number): boolean {
-  return y < VOID_Y;
+export function fellOutOfWorld(y: number, x: number): boolean {
+  return y < VOID_Y && x < SHORE_X;
 }

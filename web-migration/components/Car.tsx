@@ -155,12 +155,13 @@ export function Car() {
     // Out-of-world recovery: if the ground was not streamed in yet and the body
     // stepped through the gap, put it back on the surface here rather than let
     // gravity integrate it to -65,000. See lib/fallGuard.ts.
-    if (fellOutOfWorld(nextPos.y)) {
+    if (fellOutOfWorld(nextPos.y, nextPos.x)) {
       body.setTranslation({ x: nextPos.x, y: RIDE_HEIGHT, z: nextPos.z }, true);
       fallSpeed.current = 0;
       car.current.speed = 0;
       return;
     }
+
 
     body.setNextKinematicTranslation(nextPos);
 
