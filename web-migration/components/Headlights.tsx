@@ -109,7 +109,6 @@ export function Headlights() {
         angle={ANGLE}
         penumbra={PENUMBRA}
         decay={DECAY}
-        target={leftTarget.current ?? undefined}
       />
       <spotLight
         ref={rightRef}
@@ -119,7 +118,6 @@ export function Headlights() {
         angle={ANGLE}
         penumbra={PENUMBRA}
         decay={DECAY}
-        target={rightTarget.current ?? undefined}
       />
     </>
   );
