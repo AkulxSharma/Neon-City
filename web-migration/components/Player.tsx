@@ -115,14 +115,43 @@ export function Player() {
     const d = Math.min(dt, 0.05);
     const k = keys.current;
 
-    if (k.left) foot.current.h += TURN_RATE * d;
-    if (k.right) foot.current.h -= TURN_RATE * d;
+    // Camera-relative movement, replacing the original's tank controls (its
+    // on-foot block just did `player.h += 2.6*dt` on A/D). Turning in place
+    // while the chase camera rigidly tracked that heading meant you only ever
+    // saw the character's back, so pressing A/D read as the world swinging
+    // rather than him turning. Now WASD names a direction on screen, he turns
+    // to face it, and the camera holds still while he does.
+    const ix = (k.right ? 1 : 0) - (k.left ? 1 : 0);
+    const iz = (k.forward ? 1 : 0) - (k.back ? 1 : 0);
+    const moving = ix !== 0 || iz !== 0;
 
-    const move = k.forward ? 1 : k.back ? -0.6 : 0;
+    if (moving) {
+      // Screen-space -> world heading. With this build's convention
+      // (dir = [sin h, cos h]) the camera's right vector is [-cos h, sin h],
+      // which is heading camYaw - PI/2 — hence the minus on the atan2.
+      const desired = camYaw.current - Math.atan2(ix, iz);
+      // shortest way round, so turning from ~PI to ~-PI doesn't take the long lap
+      const diff = Math.atan2(Math.sin(desired - foot.current.h), Math.cos(desired - foot.current.h));
+      foot.current.h += clamp(diff, -TURN_RATE * d, TURN_RATE * d);
+    }
+
+    // He always walks the way he faces now, so there's no reverse gear on foot
+    // — S turns him around instead of backing him up.
+    const move = moving ? 1 : 0;
     const sprint = k.boost;
     const sp = sprint ? SPRINT_SPEED : WALK_SPEED;
     const moveStep = (move !== 0 ? 30 : 36) * d;
     foot.current.speed += clamp(move * sp - foot.current.speed, -moveStep, moveStep);
+
+    // Camera eases back behind him only in proportion to how forward-ish the
+    // input is: running forward re-centres it, strafing left/right doesn't
+    // touch it. Without that gate, holding D would rotate the camera, which
+    // would rotate what "right" means, and he'd spin on the spot forever.
+    const alignK = Math.max(0, iz);
+    if (alignK > 0) {
+      const camDiff = Math.atan2(Math.sin(foot.current.h - camYaw.current), Math.cos(foot.current.h - camYaw.current));
+      camYaw.current += camDiff * (1 - Math.pow(CAM_FOLLOW, d)) * alignK;
+    }
 
     // jump: Space edge-triggers, only from the ground; holding it through the
     // rise keeps full gravity (long jump), releasing early steepens it (short hop)
