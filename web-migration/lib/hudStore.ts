@@ -34,6 +34,7 @@ interface HudState {
   grounded: boolean;
   active: ActiveMode;
   camMode: CamMode;
+  lightMode: LightMode;
   hint: string | null;
   msg: string | null;
   nitroFuel: number; // 0..1
