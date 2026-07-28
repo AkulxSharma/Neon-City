@@ -53,6 +53,8 @@ interface HudState {
   setActive: (m: ActiveMode) => void;
   setCamMode: (m: CamMode) => void;
   cycleCamMode: () => void;
+  setLightMode: (m: LightMode) => void;
+  cycleLightMode: () => LightMode;
   setHint: (h: string | null) => void;
   showMsg: (text: string) => void;
   setNitro: (fuel: number, active: boolean) => void;
