@@ -101,6 +101,7 @@ export function Boat() {
       camMode: useHudStore.getState().camMode,
       time: state.clock.elapsedTime,
       dt: d,
+      speedMs: Math.abs(boat.current.speed),
     });
 
     useHudStore.getState().setHud(Math.round(Math.abs(boat.current.speed) * 3.6), true);

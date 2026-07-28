@@ -131,6 +131,7 @@ export function PoliceCar() {
       camMode: useHudStore.getState().camMode,
       time: state.clock.elapsedTime,
       dt: d,
+      speedMs: Math.abs(car.current.speed),
     });
 
     useHudStore.getState().setHud(Math.round(Math.abs(car.current.speed) * 3.6), grounded);

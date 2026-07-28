@@ -16,9 +16,24 @@ export interface CameraRigArgs {
   camMode: 0 | 1 | 2 | 3;
   time: number;
   dt: number;
+  speedMs?: number; // m/s, unsigned — drives the speed-FOV widen below; omit (e.g. on foot) for a flat base FOV
 }
 
-export function applyCameraRig({ camera, camPos, camLook, tx, ty, tz, th, isBike, camMode, time, dt }: CameraRigArgs) {
+// Speed-FOV widen, ported from the original's tick() (index.html ~7704-7705):
+// camera.fov eases toward a speed-scaled target every frame — the actual
+// "feels fast" cue at high speed (wide-angle stretch), not just a UI number.
+// True car cockpit gets the punchier curve, everything else (chase/hood/bike)
+// the gentler one, cinematic mode is fixed — same as the original's ternary.
+function applySpeedFov(camera: THREE.Camera, camMode: 0 | 1 | 2 | 3, isBike: boolean, speedMs: number, dt: number) {
+  if (!(camera instanceof THREE.PerspectiveCamera)) return;
+  const inCockpit = camMode === 1 && !isBike;
+  const wantFov = camMode === 3 ? 55 : inCockpit ? 68 + Math.min(speedMs * 0.22, 14) : 62 + Math.min(speedMs * 0.26, 17);
+  camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 3.5);
+  camera.updateProjectionMatrix();
+}
+
+export function applyCameraRig({ camera, camPos, camLook, tx, ty, tz, th, isBike, camMode, time, dt, speedMs = 0 }: CameraRigArgs) {
+  applySpeedFov(camera, camMode, isBike, speedMs, dt);
   const dx = Math.sin(th);
   const dz = Math.cos(th);
 

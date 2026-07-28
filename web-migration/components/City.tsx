@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RigidBody, CylinderCollider } from "@react-three/rapier";
+import { Instances, Instance } from "@react-three/drei";
 import * as THREE from "three";
 import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
@@ -558,23 +559,50 @@ const LANDMARK_CHUNKS = new Set(LANDMARKS.map((l) => `${Math.round(l.x / CELL)},
 // no random building/park spawns inside/around the club interior room
 const CLUB_IN_CHUNK = `${Math.round(CLUB_IN.x / CELL)},${Math.round(CLUB_IN.z / CELL)}`;
 
+// New chunks needed this many at a time per frame, once a boundary crossing
+// queues them — see the ADD_PER_FRAME note in City() below.
+const ADD_PER_FRAME = 2;
+
 export function City() {
   const [chunks, setChunks] = useState<string[]>(() => initialChunks());
   const last = useRef({ ci: 999, cj: 999 });
+  const pendingAdd = useRef<string[]>([]);
 
   useFrame(() => {
     const ci = Math.round(worldState.px / CELL);
     const cj = Math.round(worldState.pz / CELL);
-    if (ci === last.current.ci && cj === last.current.cj) return;
-    last.current = { ci, cj };
-
-    const next: string[] = [];
-    for (let di = -VIEW; di <= VIEW; di++) {
-      for (let dj = -VIEW; dj <= VIEW; dj++) {
-        next.push(`${ci + di},${cj + dj}`);
+    if (ci !== last.current.ci || cj !== last.current.cj) {
+      last.current = { ci, cj };
+      const next = new Set<string>();
+      for (let di = -VIEW; di <= VIEW; di++) {
+        for (let dj = -VIEW; dj <= VIEW; dj++) {
+          next.add(`${ci + di},${cj + dj}`);
+        }
       }
+      // drop stale chunks immediately (unmount is cheap) but queue newly-needed
+      // ones instead of mounting the whole ~5-chunk new ring in one commit —
+      // crossing a boundary at speed used to mount several buildings' worth of
+      // RigidBodies/colliders/textures in a single frame, a real stutter (car/
+      // camera visibly pausing then snapping) that gets worse the faster you're
+      // going, since each hitch covers more distance. Spreading ADD_PER_FRAME
+      // chunks over a few frames instead doesn't change what's ever on screen —
+      // same final chunk set, same draw distance — just how it arrives.
+      setChunks((cur) => {
+        const kept = cur.filter((k) => next.has(k));
+        // re-queuing a key already sitting in the old pendingAdd (still
+        // in-flight, not yet merged into `cur`) is harmless on its own, but
+        // useFrame runs outside React's batched-event context, so two
+        // setChunks calls this same tick aren't guaranteed to see each
+        // other's result before render — dedupe defensively at merge time
+        // below instead of trying to prove that race can't happen.
+        pendingAdd.current = Array.from(next).filter((k) => !kept.includes(k));
+        return kept;
+      });
     }
-    setChunks(next);
+    if (pendingAdd.current.length > 0) {
+      const batch = pendingAdd.current.splice(0, ADD_PER_FRAME);
+      setChunks((cur) => Array.from(new Set([...cur, ...batch])));
+    }
   });
 
   // night-window glow, updated on the shared materials ONCE per frame — same
@@ -634,6 +662,7 @@ function Chunk({ ci, cj }: { ci: number; cj: number }) {
     const rand = mulberry32(((ci * 73856093) ^ (cj * 19349663) ^ 0x5bd1e995) >>> 0);
     const isPark = rand() < 0.13; // matches the original's isPark chance exactly
     const margin = ROAD_W / 2 + 6;
+    const half = CELL / 2 - margin; // 34 — half-width of the buildable block interior, road stays clear outside this
     const zone = zoneFor(ci, cj);
 
     const buildings: BuildingSpec[] = [];
@@ -648,7 +677,6 @@ function Chunk({ ci, cj }: { ci: number; cj: number }) {
     };
 
     if (!isPark) {
-      const half = CELL / 2 - margin; // 34 — half-width of the buildable block interior
       if (zone === "residential") {
         const roll = rand();
         if (roll < 0.35) {
@@ -709,8 +737,14 @@ function Chunk({ ci, cj }: { ci: number; cj: number }) {
     // original's per-chunk street trees
     for (let i = 0; i < 3; i++) {
       const side = Math.floor(rand() * 4);
-      const u = (rand() * 2 - 1) * 34;
-      const hs = 38.5;
+      const u = (rand() * 2 - 1) * half;
+      // was a hardcoded 38.5 — only 1.5 units clear of the road's inner edge
+      // (cx+40, given ROAD_W=20 at the cx+50 chunk boundary), while buildings
+      // stay within `half`=34. A tree that close to the road is a real snag a
+      // fast/drifting car can clip; reusing the same `half` buildings already
+      // respect gives it the same real clearance instead of a separate,
+      // tighter number nobody checked against the road width.
+      const hs = half;
       const x = cx + (side === 0 ? u : side === 1 ? hs : side === 2 ? u : -hs);
       const z = cz + (side === 0 ? -hs : side === 1 ? u : side === 2 ? hs : -u);
       trees.push({ x, z, h: 2.2 + rand() * 1.4, r: 1.3 + rand() * 0.9, matIdx: Math.floor(rand() * 3) });
@@ -782,6 +816,11 @@ function Building({ spec }: { spec: BuildingSpec }) {
 // repeated identical floors, an even grid of windows + balconies on the front
 // and back faces. This is the "colony" look: one uniform template stamped
 // tall, not a house scaled up.
+// Windows/balconies were one <mesh> each — a floors×cols×2-faces loop, up to
+// (18-1)*8*2=272 of each on a tall highrise, per building. Same visual
+// density, now 2 draw calls (one InstancedMesh per geometry+material) instead
+// of hundreds — the actual "running heavy" cost as the city grew archetypes
+// (Milestone 16-17 already flagged this as the next perf-pass target).
 function ApartmentBuilding({ spec: { kind, x, z, w, d, h, matIdx } }: { spec: BuildingSpec }) {
   const bodyMat = APARTMENT_MATS[matIdx % APARTMENT_MATS.length];
   const windowMat = WINDOW_MATS[Math.floor(hash2(x, z) * WINDOW_MATS.length)];
@@ -791,25 +830,24 @@ function ApartmentBuilding({ spec: { kind, x, z, w, d, h, matIdx } }: { spec: Bu
   const cols = Math.max(3, Math.round(w / 2.4));
   const winW = Math.min(0.7, (w / cols) * 0.45);
   const winH = storey * 0.42;
+  const count = (floors - 1) * cols * 2; // both faces
 
-  const faceWindows = (faceZ: number, faceSign: number) =>
-    Array.from({ length: floors - 1 }, (_, fi) => {
+  const windows: [number, number, number][] = [];
+  const balconies: [number, number, number][] = [];
+  for (const [faceZ, faceSign] of [
+    [z + d / 2 + 0.03, 1],
+    [z - d / 2 - 0.03, -1],
+  ] as const) {
+    for (let fi = 0; fi < floors - 1; fi++) {
       const floor = fi + 1; // skip ground floor — entrance/lobby, no windows
       const y = floor * storey + storey * 0.5;
-      return Array.from({ length: cols }, (_, ci2) => {
-        const cx2 = x + (ci2 + 0.5) / cols * w - w / 2;
-        return (
-          <group key={`${floor}-${ci2}`}>
-            <mesh position={[cx2, y, faceZ]} material={windowMat}>
-              <boxGeometry args={[winW, winH, 0.05]} />
-            </mesh>
-            <mesh position={[cx2, y - winH * 0.5 - 0.08, faceZ + faceSign * 0.22]} material={BALCONY_MAT} castShadow>
-              <boxGeometry args={[winW * 1.5, 0.08, 0.5]} />
-            </mesh>
-          </group>
-        );
-      });
-    });
+      for (let ci2 = 0; ci2 < cols; ci2++) {
+        const cx2 = x + ((ci2 + 0.5) / cols) * w - w / 2;
+        windows.push([cx2, y, faceZ]);
+        balconies.push([cx2, y - winH * 0.5 - 0.08, faceZ + faceSign * 0.22]);
+      }
+    }
+  }
 
   return (
     <group>
@@ -819,8 +857,16 @@ function ApartmentBuilding({ spec: { kind, x, z, w, d, h, matIdx } }: { spec: Bu
         </mesh>
       </RigidBody>
       <mesh position={[x, h + 0.15, z]} geometry={UNIT_BOX_GEO} material={ROOF_MAT} scale={[w * 1.02, 0.3, d * 1.02]} />
-      {faceWindows(z + d / 2 + 0.03, 1)}
-      {faceWindows(z - d / 2 - 0.03, -1)}
+      <Instances geometry={UNIT_BOX_GEO} material={windowMat} limit={count}>
+        {windows.map((p, i) => (
+          <Instance key={i} position={p} scale={[winW, winH, 0.05]} />
+        ))}
+      </Instances>
+      <Instances geometry={UNIT_BOX_GEO} material={BALCONY_MAT} limit={count} castShadow>
+        {balconies.map((p, i) => (
+          <Instance key={i} position={p} scale={[winW * 1.5, 0.08, 0.5]} />
+        ))}
+      </Instances>
       <Entrance x={x} z={z} d={d} w={w} />
       <SideGraffiti x={x} z={z} w={w} d={d} h={h} />
     </group>
@@ -868,7 +914,6 @@ function OfficeBuilding({ spec: { x, z, w, d, h, matIdx } }: { spec: BuildingSpe
             geometry={UNIT_BOX_GEO}
             material={AC_UNIT_MAT}
             scale={[0.9, 0.7, 0.9]}
-            castShadow
           />
         );
       })}
@@ -1427,6 +1472,12 @@ function Tree({ x, z, h, r, matIdx }: { x: number; z: number; h: number; r: numb
         <CylinderCollider args={[h / 2, 0.2]} />
       </RigidBody>
       <mesh castShadow geometry={TRUNK_GEO} material={TRUNK_MAT} scale={[1, h, 1]} position={[0, h / 2, 0]} />
+      {/* ponytail: branch stubs + crown lobes skip castShadow — 7 small
+          shadow-casters per tree × ~75-100 trees live at VIEW=2 was a real
+          chunk of the shadow-pass cost for detail nobody notices is
+          unshadowed at driving distance; trunk still casts (visible on the
+          ground). Geometry/color/position all unchanged, revert if a tree's
+          own shadow ever needs to read on the canopy itself. */}
       {[-1, 1].map((side) => {
         const j = hash2(x * 3.1 + side, z * 5.7 + side);
         // root sits just below the trunk top (blends into it, not floating
@@ -1438,7 +1489,6 @@ function Tree({ x, z, h, r, matIdx }: { x: number; z: number; h: number; r: numb
         return (
           <mesh
             key={side}
-            castShadow
             geometry={BRANCH_GEO}
             material={BRANCH_MAT}
             scale={[1, len, 1]}
@@ -1454,7 +1504,6 @@ function Tree({ x, z, h, r, matIdx }: { x: number; z: number; h: number; r: numb
         return (
           <mesh
             key={i}
-            castShadow
             geometry={CROWN_GEO}
             material={CROWN_MATS[matIdx * 3 + tint]}
             scale={[s, s * 0.85, s]}

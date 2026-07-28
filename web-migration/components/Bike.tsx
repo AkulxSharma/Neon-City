@@ -161,6 +161,7 @@ export function Bike() {
       camMode: useHudStore.getState().camMode,
       time: state.clock.elapsedTime,
       dt: d,
+      speedMs: Math.abs(bike.current.speed),
     });
 
     useHudStore.getState().setHud(Math.round(Math.abs(bike.current.speed) * 3.6), grounded);
