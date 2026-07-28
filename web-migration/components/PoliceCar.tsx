@@ -8,6 +8,7 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, POLICE_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { fellOutOfWorld } from "@/lib/fallGuard";
 import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
@@ -98,6 +99,17 @@ export function PoliceCar() {
 
     const t = body.translation();
     const nextPos = { x: t.x + movement.x, y: t.y + movement.y, z: t.z + movement.z };
+
+    // Out-of-world recovery: if the ground was not streamed in yet and the body
+    // stepped through the gap, put it back on the surface here rather than let
+    // gravity integrate it to -65,000. See lib/fallGuard.ts.
+    if (fellOutOfWorld(nextPos.y)) {
+      body.setTranslation({ x: nextPos.x, y: RIDE_HEIGHT, z: nextPos.z }, true);
+      fallSpeed.current = 0;
+      car.current.speed = 0;
+      return;
+    }
+
     body.setNextKinematicTranslation(nextPos);
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), car.current.h));
 
