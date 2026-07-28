@@ -128,9 +128,11 @@ export function Player() {
     // to face it, and the camera holds still while he does.
     const ix = (k.right ? 1 : 0) - (k.left ? 1 : 0);
     const iz = (k.forward ? 1 : 0) - (k.back ? 1 : 0);
-    const moving = ix !== 0 || iz !== 0;
+    // named for the INPUT, not the speed — there's a separate `moving` further
+    // down that means "actually travelling", used to drive the walk cycle
+    const hasInput = ix !== 0 || iz !== 0;
 
-    if (moving) {
+    if (hasInput) {
       // Screen-space -> world heading. With this build's convention
       // (dir = [sin h, cos h]) the camera's right vector is [-cos h, sin h],
       // which is heading camYaw - PI/2 — hence the minus on the atan2.
@@ -142,7 +144,7 @@ export function Player() {
 
     // He always walks the way he faces now, so there's no reverse gear on foot
     // — S turns him around instead of backing him up.
-    const move = moving ? 1 : 0;
+    const move = hasInput ? 1 : 0;
     const sprint = k.boost;
     const sp = sprint ? SPRINT_SPEED : WALK_SPEED;
     const moveStep = (move !== 0 ? 30 : 36) * d;
