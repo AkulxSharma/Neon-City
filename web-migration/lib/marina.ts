@@ -21,7 +21,7 @@ export const PIER_COLLIDERS: { x0: number; x1: number; z0: number; z1: number }[
 // Where a vehicle that somehow ends up drowning respawns — same clear spot
 // policeCar already parks at (lib/vehicleState.ts), reused so Car.tsx/Bike.tsx
 // don't need their own separate safe-spot check.
-export const DROWN_RESPAWN = { x: 465, z: 45, h: 0 };
+export const DROWN_RESPAWN = { x: 482, z: 75, h: 0 };
 
 /** Ported verbatim from the original's pierPush(x,z,r) — same AABB push-out
  * math as collide(), just against the dock's own footprint instead of the

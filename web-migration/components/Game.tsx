@@ -30,6 +30,7 @@ import { stealTrafficAction } from "@/lib/steal";
 import { PoliceCar } from "@/components/PoliceCar";
 import { PatrolBoat } from "@/components/PatrolBoat";
 import { PoliceStation } from "@/components/PoliceStation";
+import { MizuRestaurant } from "@/components/MizuRestaurant";
 import { Marina } from "@/components/Marina";
 import { Props } from "@/components/Props";
 import { Headlights } from "@/components/Headlights";
@@ -128,6 +129,7 @@ export default function Game() {
             <PoliceCar />
             <PatrolBoat />
             <PoliceStation />
+            <MizuRestaurant />
             <Marina />
             <Props />
             <Traffic />

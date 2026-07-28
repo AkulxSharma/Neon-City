@@ -20,5 +20,11 @@ export const LANDMARKS: Landmark[] = [
   { name: "FOUNTAIN PLAZA", x: -150, z: -150, col: "#b06bff" },
   { name: "HARBOR LAKE", x: 50, z: -250, col: "#2fb8ff" },
   { name: "EAST MARINA", x: 566, z: 50, col: "#2fe8ff" }, // original: SHORE_X-34, SHORE_X=600
-  { name: "POLICE HARBOR", x: 450, z: 50, col: "#2452ff" }, // original's raw coordinate — valid land again now SHORE_X=600
+  // moved off the original's raw (450,50) — that point sits exactly on the
+  // chunk-grid road intersection (both x=450 and z=50 are road centerlines,
+  // see City.tsx's CELL/ROAD_W), so the station was literally built in the
+  // middle of the road. (490,90) is the nearest fully-clear interior block —
+  // same corner of the map, just off the pavement.
+  { name: "POLICE HARBOR", x: 490, z: 90, col: "#2452ff" },
+  { name: "MIZU 21", x: 100, z: 0, col: "#f4c430" },
 ].map((l) => ({ col: "#ff3fd6", ...l })) as Landmark[];

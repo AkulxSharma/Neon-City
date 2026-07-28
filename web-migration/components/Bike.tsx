@@ -41,6 +41,7 @@ export function Bike() {
   const camLook = useRef(new THREE.Vector3());
   const controllerRef = useRef<KinematicCharacterController | null>(null);
   const leanRef = useRef(0);
+  const riderRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
     const controller = world.createCharacterController(0.02);
@@ -65,6 +66,10 @@ export function Bike() {
     const d = Math.min(dt, 0.05);
 
     const isActive = useHudStore.getState().active === "bike";
+    // same visible-only-while-driving toggle as Player.tsx's own character —
+    // an unridden bike (parked, or the player off on foot elsewhere) shouldn't
+    // show a rider sitting on it
+    if (riderRef.current) riderRef.current.visible = isActive;
 
     // club door teleport (enter/exit VENU) — see lib/club.ts
     if (isActive && teleportRequest.pending) {
@@ -171,32 +176,126 @@ export function Bike() {
     <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[save?.x ?? -20, 1, save?.z ?? 0]}>
       <CuboidCollider ref={colliderRef} args={[bikeBox.x / 2, bikeBox.y / 2, bikeBox.z / 2]} />
       <BikeMesh />
+      <group ref={riderRef}>
+        <BikeRider />
+      </group>
     </RigidBody>
   );
 }
 
-function BikeMesh() {
+const BIKE_MAIN_MAT = new THREE.MeshStandardMaterial({ color: "#5c6142", metalness: 0.35, roughness: 0.45 });
+const BIKE_PANEL_MAT = new THREE.MeshStandardMaterial({ color: "#2b2d30", metalness: 0.6, roughness: 0.35 });
+const BIKE_GOLD_MAT = new THREE.MeshStandardMaterial({ color: "#c9a227", metalness: 0.8, roughness: 0.25 });
+const BIKE_SEAT_MAT = new THREE.MeshStandardMaterial({ color: "#17181a", roughness: 0.6 });
+const BIKE_TIRE_MAT = new THREE.MeshStandardMaterial({ color: "#141414", roughness: 0.9 });
+const BIKE_HUB_MAT = new THREE.MeshStandardMaterial({ color: "#2a2c32", metalness: 0.9, roughness: 0.25 });
+
+// a wheel + its hub — the rear one gets a much bigger hub disc to read as the
+// Verge TS's signature hubless rear end (motor housing fills the wheel
+// instead of spokes around a small hub)
+function Wheel({ z, hubR, hubThick }: { z: number; hubR: number; hubThick: number }) {
+  return (
+    <group position={[0, -0.42, z]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh castShadow material={BIKE_TIRE_MAT}>
+        <cylinderGeometry args={[0.34, 0.34, 0.1, 20]} />
+      </mesh>
+      <mesh material={BIKE_HUB_MAT}>
+        <cylinderGeometry args={[hubR, hubR, hubThick, 16]} />
+      </mesh>
+    </group>
+  );
+}
+
+// exported so parked decoration (components/PoliceStation.tsx) can reuse the
+// exact same model without a RigidBody/physics rig attached. Redesigned after
+// the Verge TS Ultra: angular faceted tank panels, twin stacked headlights,
+// gold upside-down fork tubes, a floating tail with no bulky subframe, and
+// an oversized rear hub standing in for the real bike's hubless rear motor.
+export function BikeMesh() {
   return (
     <group>
-      <mesh castShadow position={[0, 0.1, 0]}>
-        <boxGeometry args={[0.22, 0.3, 1.1]} />
-        <meshStandardMaterial color="#c8302f" metalness={0.4} roughness={0.35} />
+      {/* main body spine */}
+      <mesh castShadow position={[0, 0.08, 0.05]} material={BIKE_MAIN_MAT}>
+        <boxGeometry args={[0.24, 0.22, 1.25]} />
       </mesh>
-      <mesh castShadow position={[0, 0.28, 0.15]}>
-        <boxGeometry args={[0.3, 0.22, 0.5]} />
-        <meshStandardMaterial color="#c8302f" metalness={0.4} roughness={0.35} />
-      </mesh>
-      {/* chromeMat, ported from the original's shared wheel-hub material (index.html line 4833) */}
-      {[0.7, -0.7].map((z) => (
-        <mesh key={z} position={[0, -0.42, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.34, 0.34, 0.14, 14]} />
-          <meshStandardMaterial color="#2a2c32" metalness={0.95} roughness={0.28} />
+      {/* angular tank-side facets */}
+      {[1, -1].map((s) => (
+        <mesh key={s} castShadow position={[s * 0.15, 0.22, 0.25]} rotation={[0, 0, s * 0.35]} material={BIKE_PANEL_MAT}>
+          <boxGeometry args={[0.05, 0.26, 0.55]} />
         </mesh>
       ))}
-      <mesh position={[0, 0.36, 0.85]}>
-        <sphereGeometry args={[0.07, 8, 8]} />
-        <meshBasicMaterial color="#fff6d0" />
+      {/* side vent panel */}
+      <mesh position={[0.13, 0.05, -0.05]} rotation={[0, 0.2, 0]} material={BIKE_PANEL_MAT}>
+        <boxGeometry args={[0.02, 0.16, 0.3]} />
       </mesh>
+      {/* floating tail seat — no bulky rear bodywork under it */}
+      <mesh position={[0, 0.3, -0.35]} material={BIKE_SEAT_MAT}>
+        <boxGeometry args={[0.22, 0.06, 0.5]} />
+      </mesh>
+
+      {/* upside-down front fork tubes */}
+      {[0.09, -0.09].map((x) => (
+        <mesh key={x} castShadow position={[x, -0.15, 0.68]} rotation={[0.15, 0, 0]} material={BIKE_GOLD_MAT}>
+          <cylinderGeometry args={[0.025, 0.025, 0.55, 10]} />
+        </mesh>
+      ))}
+
+      {/* twin stacked headlights */}
+      {[0.09, -0.09].map((dy) => (
+        <mesh key={dy} position={[0, 0.3 + dy, 0.85]}>
+          <sphereGeometry args={[0.055, 10, 10]} />
+          <meshBasicMaterial color="#c9f0ff" />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.28, -0.62]}>
+        <boxGeometry args={[0.12, 0.05, 0.03]} />
+        <meshBasicMaterial color="#ff2b2b" />
+      </mesh>
+
+      {/* bar-end mirrors on thin stalks */}
+      {[0.16, -0.16].map((x) => (
+        <group key={x} position={[x, 0.42, 0.65]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} material={BIKE_PANEL_MAT}>
+            <cylinderGeometry args={[0.015, 0.015, 0.14, 6]} />
+          </mesh>
+          <mesh position={[x > 0 ? 0.08 : -0.08, 0.02, 0]} material={BIKE_PANEL_MAT}>
+            <boxGeometry args={[0.09, 0.05, 0.03]} />
+          </mesh>
+        </group>
+      ))}
+
+      <Wheel z={0.7} hubR={0.12} hubThick={0.12} />
+      <Wheel z={-0.7} hubR={0.27} hubThick={0.16} />
+    </group>
+  );
+}
+
+const RIDER_JACKET_MAT = new THREE.MeshStandardMaterial({ color: "#1c1e22", roughness: 0.6 });
+const RIDER_HELMET_MAT = new THREE.MeshStandardMaterial({ color: "#101114", roughness: 0.3, metalness: 0.3 });
+const RIDER_LIMB_MAT = new THREE.MeshStandardMaterial({ color: "#26282c", roughness: 0.65 });
+
+// a minimal seated silhouette, not the full walk-cycle rig Pedestrians.tsx
+// builds (that's tuned for walking animation, overkill for a fixed seated
+// pose) — leaning forward over the tank, arms to the bars, legs to the pegs
+function BikeRider() {
+  return (
+    <group position={[0, 0.33, -0.3]}>
+      <mesh castShadow position={[0, 0.28, 0.15]} rotation={[0.35, 0, 0]} material={RIDER_JACKET_MAT}>
+        <boxGeometry args={[0.26, 0.4, 0.2]} />
+      </mesh>
+      <mesh castShadow position={[0, 0.56, 0.32]} material={RIDER_HELMET_MAT}>
+        <sphereGeometry args={[0.13, 10, 10]} />
+      </mesh>
+      {[0.14, -0.14].map((x) => (
+        <mesh key={x} castShadow position={[x, 0.32, 0.42]} rotation={[0.9, 0, 0]} material={RIDER_LIMB_MAT}>
+          <cylinderGeometry args={[0.045, 0.045, 0.42, 8]} />
+        </mesh>
+      ))}
+      {[0.11, -0.11].map((x) => (
+        <mesh key={x} castShadow position={[x, 0.04, 0.02]} rotation={[0.55, 0, 0]} material={RIDER_LIMB_MAT}>
+          <cylinderGeometry args={[0.055, 0.055, 0.42, 8]} />
+        </mesh>
+      ))}
     </group>
   );
 }
