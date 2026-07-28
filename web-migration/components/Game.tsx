@@ -20,7 +20,7 @@ import { ClubInterior } from "@/components/ClubInterior";
 import { AudioEngine } from "@/components/AudioEngine";
 import { WaypointTracker } from "@/components/WaypointTracker";
 import { HUD } from "@/components/HUD";
-import { useHudStore } from "@/lib/hudStore";
+import { useHudStore, LIGHT_MODES } from "@/lib/hudStore";
 import { initAudio, toggleMute, setMuted } from "@/lib/audio";
 import { loadSave, saveGame } from "@/lib/saveGame";
 import { clubDoorAction } from "@/lib/club";
