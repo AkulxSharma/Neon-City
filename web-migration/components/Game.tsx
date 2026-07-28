@@ -111,6 +111,9 @@ export default function Game() {
       <Canvas shadows dpr={1} camera={{ fov: 65, near: 0.1, far: 1000 }} gl={{ toneMappingExposure: 1.5 }}>
         <Suspense fallback={null}>
           <SkyCycle />
+          {/* outside <Physics> on purpose — lights have no bodies/colliders,
+              and this one only reads worldState, which every vehicle writes */}
+          <Headlights />
           <AudioEngine />
           <WaypointTracker />
           <Physics gravity={[0, -9.81, 0]}>
