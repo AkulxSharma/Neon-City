@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { useHudStore } from "@/lib/hudStore";
 import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
+import { HEADLIGHT, TAILLIGHT, BEAM } from "@/components/SupercarBody";
 
 // Port of the original's headlight rig (index.html ~6240 for the lights,
 // ~7359 for the per-frame placement). Two spotlights that follow whatever the
@@ -43,6 +44,20 @@ const HEIGHT = 0.8;
 const AIM_AHEAD = 30;
 const AIM_HEIGHT = 0.2;
 
+// ---- every OTHER car's lights ----------------------------------------
+// The lamp meshes already existed on every car (SupercarBody's shared
+// HEADLIGHT/TAILLIGHT materials) but were a flat constant colour, so a car at
+// midnight looked exactly like a car at noon. These are the two ends of the
+// ramp the day/night cycle drives them between. Because those materials are
+// shared module-scope singletons, this is ONE update per frame for the whole
+// street: the player's sedan, the police interceptor and every traffic car.
+const LAMP_DAY = new THREE.Color("#8d9099"); // unlit glass, reads as grey plastic
+const LAMP_NIGHT = new THREE.Color("#fffdf2"); // past the bloom threshold, so it flares
+const TAIL_DAY = new THREE.Color("#5e1a1a");
+const TAIL_NIGHT = new THREE.Color("#ff2b2b");
+const BEAM_MAX = 0.5;
+const lampCol = new THREE.Color(); // scratch, so the per-frame lerp allocates nothing
+
 export function Headlights() {
   const leftRef = useRef<THREE.SpotLight>(null);
   const rightRef = useRef<THREE.SpotLight>(null);
@@ -60,6 +75,14 @@ export function Headlights() {
     // they populate.
     if (left.target !== lTarget) left.target = lTarget;
     if (right.target !== rTarget) right.target = rTarget;
+
+    // Every car's lamps + ground pool, driven purely by the clock. Deliberately
+    // NOT gated on the player's L toggle: that switch is his own headlights,
+    // and an NPC three streets away shouldn't go dark because he flicked it.
+    const lit = THREE.MathUtils.clamp(skyState.nightK + 0.15, 0, 1);
+    HEADLIGHT.color.copy(lampCol.copy(LAMP_DAY).lerp(LAMP_NIGHT, lit));
+    TAILLIGHT.color.copy(lampCol.copy(TAIL_DAY).lerp(TAIL_NIGHT, lit));
+    BEAM.opacity = lit * BEAM_MAX;
 
     const hud = useHudStore.getState();
     // On foot there is no car to light the way with, and the club is its own

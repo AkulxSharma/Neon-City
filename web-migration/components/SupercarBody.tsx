@@ -38,8 +38,51 @@ const TIRE = new THREE.MeshStandardMaterial({ color: "#121316", roughness: 0.92 
 const RIM = new THREE.MeshStandardMaterial({ color: "#c2c7d0", metalness: 0.95, roughness: 0.2 });
 const CALIPER = new THREE.MeshStandardMaterial({ color: "#d8451f", roughness: 0.45 });
 const CHROME = new THREE.MeshStandardMaterial({ color: "#23262d", metalness: 0.95, roughness: 0.24 });
-const HEADLIGHT = new THREE.MeshBasicMaterial({ color: "#eaf2ff" });
-const TAILLIGHT = new THREE.MeshBasicMaterial({ color: "#ff2b2b" });
+// Lamp materials are module-scope and SHARED by every car in the game, which
+// is what makes "headlights on all the cars" cost one material update per
+// frame instead of one per vehicle: components/Headlights.tsx drives these
+// two colours (and BEAM's opacity) off the day/night cycle, and all ~dozen
+// traffic cars, the player's sedan and the police interceptor follow at once.
+// They're MeshBasicMaterial, so scene lighting can't dim them — the colour we
+// set IS what's drawn, and past the bloom threshold it flares.
+export const HEADLIGHT = new THREE.MeshBasicMaterial({ color: "#eaf2ff" });
+export const TAILLIGHT = new THREE.MeshBasicMaterial({ color: "#ff2b2b" });
+
+// Soft pool of light thrown on the road ahead of every car. Deliberately a
+// textured additive quad rather than a real SpotLight per vehicle: a dozen
+// shadow-casting spotlights would be the single most expensive thing in the
+// scene, and at traffic distances a ground pool is what actually reads. The
+// player's own car additionally gets the real rig in components/Headlights.tsx.
+const BEAM_TEX = (() => {
+  if (typeof document === "undefined") return null; // SSR
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  // narrow and bright at the bumper, spreading and fading down the road
+  for (let y = 0; y < 128; y++) {
+    const t = y / 127; // 0 at the car, 1 at the far end
+    const halfWidth = (0.14 + t * 0.42) * 128;
+    const alpha = (1 - t) * (1 - t) * 0.85;
+    const grad = g.createLinearGradient(64 - halfWidth, 0, 64 + halfWidth, 0);
+    grad.addColorStop(0, "rgba(255,242,207,0)");
+    grad.addColorStop(0.5, `rgba(255,242,207,${alpha})`);
+    grad.addColorStop(1, "rgba(255,242,207,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, y, 128, 1);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+})();
+
+export const BEAM = new THREE.MeshBasicMaterial({
+  map: BEAM_TEX,
+  transparent: true,
+  opacity: 0,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  toneMapped: false,
+});
 const SKIN = new THREE.MeshLambertMaterial({ color: "#d9a066" });
 
 // Distance from the body group's origin DOWN to the tyre contact patch: the
@@ -256,6 +299,13 @@ export function SupercarBody({
       ))}
       <mesh position={[0, -0.4, -2.2]} material={TAILLIGHT}>
         <boxGeometry args={[1.46, 0.07, 0.05]} />
+      </mesh>
+      {/* the pool the lamps cast. Laid flat just above the road (the group's
+          origin sits RIDE_HEIGHT above the contact patch, so -0.955 is ~2.5cm
+          of clearance — enough to beat z-fighting with the asphalt). Opacity
+          is 0 by day, so this costs a fully-transparent quad and nothing else. */}
+      <mesh position={[0, -0.955, 6.4]} rotation={[-Math.PI / 2, 0, 0]} material={BEAM} renderOrder={2}>
+        <planeGeometry args={[5.2, 8.4]} />
       </mesh>
       {high &&
         [1, -1].map((s) => (
