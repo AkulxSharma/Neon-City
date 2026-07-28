@@ -22,6 +22,15 @@ export const MAX_PITCH_DOWN = -0.45; // cursor at the top edge — camera drops
 // Generous middle band where the camera stays put, so a cursor resting near
 // the centre of the screen (or just crossing it) doesn't nudge the view.
 export const DEAD_ZONE = 0.18;
+// Margin kept clear at the physical screen edge. Without this, full lean was
+// only reached at nx/ny = ±1 exactly — the literal boundary of the canvas —
+// so getting the full swing meant chasing the cursor to the true edge, and
+// once there, further movement (or the mouse hitting the real edge of the
+// monitor and having nowhere left to go) produced no more rotation but felt
+// like the pan had no ceiling: "it keeps going and doesn't stop." Capping the
+// usable travel well short of the edge means max lean is reached with room
+// to spare, and the cursor never has to (or can) reach the actual boundary.
+export const EDGE_MARGIN = 0.12;
 // Fraction of the remaining distance left per second — the easing that stops
 // the camera snapping around with the pointer.
 export const EASE = 0.0008;

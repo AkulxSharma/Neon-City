@@ -7,6 +7,7 @@ import { Instances, Instance } from "@react-three/drei";
 import * as THREE from "three";
 import { skyState } from "@/lib/skyState";
 import { worldState } from "@/lib/worldState";
+import { loadSave } from "@/lib/saveGame";
 import { LANDMARKS } from "@/lib/landmarks";
 import { CLUB_IN } from "@/lib/club";
 
@@ -626,10 +627,25 @@ export function City() {
   );
 }
 
+// The ring that exists on the very first React commit, BEFORE the streamer in
+// City()'s useFrame has run even once.
+//
+// This used to be hardcoded around the world origin, which was a real bug: every
+// vehicle restores to its own SAVED position, so a save anywhere outside chunks
+// (-2..2, -2..2) spawned the car over a hole. It would start falling on frame 1
+// and only survive if the streamer (ADD_PER_FRAME chunks per frame) got the
+// ground under it before it dropped past the 1-unit-thick ground box — a race a
+// backgrounded or slow tab loses, after which the ground is above the car and
+// it falls forever. Centring the ring on the spawn point means the ground is
+// there before the first physics step, so there is no race to lose.
 function initialChunks() {
+  const save = loadSave();
+  const spawn = save && save.active !== "foot" ? save.vehicles?.[save.active] : null;
+  const ci0 = spawn ? Math.round(spawn.x / CELL) : 0;
+  const cj0 = spawn ? Math.round(spawn.z / CELL) : 0;
   const out: string[] = [];
   for (let di = -VIEW; di <= VIEW; di++) {
-    for (let dj = -VIEW; dj <= VIEW; dj++) out.push(`${di},${dj}`);
+    for (let dj = -VIEW; dj <= VIEW; dj++) out.push(`${ci0 + di},${cj0 + dj}`);
   }
   return out;
 }

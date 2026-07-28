@@ -8,6 +8,7 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { stepCarPhysics, BIKE_HANDLING, type CarState } from "@/lib/carPhysics";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
+import { fellOutOfWorld } from "@/lib/fallGuard";
 import { vehicleState } from "@/lib/vehicleState";
 import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
@@ -128,6 +129,17 @@ export function Bike() {
       }
     } else {
       drownTime.current = 0;
+    }
+
+
+    // Out-of-world recovery: if the ground was not streamed in yet and the body
+    // stepped through the gap, put it back on the surface here rather than let
+    // gravity integrate it to -65,000. See lib/fallGuard.ts.
+    if (fellOutOfWorld(nextPos.y, nextPos.x)) {
+      body.setTranslation({ x: nextPos.x, y: 1, z: nextPos.z }, true); // the bike sits at y=1, not the supercar RIDE_HEIGHT
+      fallSpeed.current = 0;
+      bike.current.speed = 0;
+      return;
     }
 
     body.setNextKinematicTranslation(nextPos);
