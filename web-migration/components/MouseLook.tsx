@@ -8,6 +8,7 @@ import {
   MAX_PITCH_UP,
   MAX_PITCH_DOWN,
   DEAD_ZONE,
+  EDGE_MARGIN,
   EASE,
 } from "@/lib/cameraLook";
 import { useHudStore } from "@/lib/hudStore";
@@ -23,13 +24,18 @@ import { useHudStore } from "@/lib/hudStore";
 // Deliberately additive — it only writes offsets that default to 0, so a
 // player who leaves the mouse in the middle gets exactly the old camera.
 
-// Maps one axis of cursor position (-1..1 from centre) through the dead zone
-// onto a 0..1 strength, so the camera eases in from the edge of the dead zone
-// rather than jumping the moment you cross it.
+// Maps one axis of cursor position (-1..1 from centre) onto a 0..1 lean
+// strength. Below DEAD_ZONE it's 0 (a resting/passing cursor does nothing);
+// past DEAD_ZONE it ramps up and HITS 1 at (1 - EDGE_MARGIN), not at the true
+// edge — so full lean arrives with room to spare and the cursor never needs
+// to reach the literal boundary of the canvas. Clamped at both ends: the
+// bottom by the dead-zone check, the top by the final Math.min.
 function ramp(n: number) {
-  const a = Math.abs(n);
+  const a = Math.min(Math.abs(n), 1); // defensive — a stray event just outside the rect shouldn't overshoot
   if (a <= DEAD_ZONE) return 0;
-  return Math.sign(n) * ((a - DEAD_ZONE) / (1 - DEAD_ZONE));
+  const usable = 1 - DEAD_ZONE - EDGE_MARGIN;
+  const t = Math.min((a - DEAD_ZONE) / usable, 1);
+  return Math.sign(n) * t;
 }
 
 export function MouseLook() {
