@@ -1,6 +1,6 @@
 import { vehicleState } from "@/lib/vehicleState";
 import { skyState } from "@/lib/skyState";
-import { useHudStore, type ActiveMode, type CamMode } from "@/lib/hudStore";
+import { useHudStore, type ActiveMode, type CamMode, type LightMode } from "@/lib/hudStore";
 import { isMuted } from "@/lib/audio";
 
 const SAVE_KEY = "ncd_web_save_v1";
