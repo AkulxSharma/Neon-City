@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { cameraLook } from "@/lib/cameraLook";
 
 // Ported directly from the original's camera block in tick() (camMode 0-3:
 // chase/cockpit/hood/cinematic) — same distances, heights, and cinematic
