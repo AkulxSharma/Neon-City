@@ -53,6 +53,11 @@ export function Player() {
   const { camera } = useThree();
 
   const foot = useRef({ h: START.h, speed: 0, vy: 0 });
+  // The chase camera's own yaw, tracked separately from the character's
+  // heading so input can be read relative to where the camera is actually
+  // looking. Vehicles keep using their own heading directly — this is on-foot
+  // only.
+  const camYaw = useRef(START.h);
   const walkPhase = useRef(0);
   const spaceWasDown = useRef(false);
   const groundedRef = useRef(true);
