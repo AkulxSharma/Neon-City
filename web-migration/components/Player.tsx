@@ -15,16 +15,20 @@ import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const DROWN_LIMIT = 2; // seconds in open water before respawn
 
-// Ported from the original's on-foot tick() block: turn 2.6 rad/s, walk 4.5
-// m/s / sprint 9 m/s (SHIFT), accel/decel ramp (30 accelerating, 36 braking),
-// jump vy=7.5 with asymmetric gravity (46 while rising and released early for
-// a short hop, 20 otherwise) — same numbers, just fed through Rapier's
+// Ported from the original's on-foot tick() block: walk 4.5 m/s / sprint 9 m/s
+// (SHIFT), accel/decel ramp (30 accelerating, 36 braking), jump vy=7.5 with
+// asymmetric gravity (46 while rising and released early for a short hop, 20
+// otherwise) — same numbers, just fed through Rapier's
 // KinematicCharacterController (same one Car/Bike use) instead of the
 // original's own collide()/py ballistic tracking.
-// How fast the character snaps to face a new input direction. Deliberately
-// much quicker than the original's 2.6 rad/s: under camera-relative control
-// this is a turn-to-face, not a steering rate, so it should read as "he turned"
-// rather than "he slowly swung round".
+//
+// Steering is the one deliberate departure: the original used tank controls
+// (A/D = `player.h += 2.6*dt`), which under a chase camera locked to that
+// heading looked like the world swinging rather than the character turning.
+// See the camera-relative block in useFrame.
+//
+// How fast he snaps to face a new input direction. Much quicker than the
+// original's 2.6 rad/s because this is now a turn-to-face, not a steering rate.
 const TURN_RATE = 11;
 // How fast the chase camera drifts back behind him, and only while he's
 // running roughly forward (see alignK below). Holding A or D alone leaves the
@@ -92,6 +96,7 @@ export function Player() {
       playerTeleport.pending = false;
       body.setTranslation({ x: playerTeleport.x, y: 1, z: playerTeleport.z }, true);
       foot.current.h = playerTeleport.h;
+      camYaw.current = playerTeleport.h; // snap, don't let the camera swing in from the old heading
       foot.current.speed = 0;
       foot.current.vy = 0;
       worldState.px = playerTeleport.x;
@@ -181,6 +186,7 @@ export function Player() {
         drownTime.current = 0;
         body.setTranslation({ x: START.x, y: 1, z: START.z }, true);
         foot.current.h = START.h;
+        camYaw.current = START.h;
         foot.current.speed = 0;
         foot.current.vy = 0;
         worldState.px = START.x;
@@ -233,7 +239,9 @@ export function Player() {
       tx: nextPos.x,
       ty: nextPos.y,
       tz: nextPos.z,
-      th: foot.current.h,
+      // chase orbits the camera's own lagging yaw so a turn is visible; the
+      // first-person and cinematic modes still key off where he's actually facing
+      th: hud.camMode === 0 ? camYaw.current : foot.current.h,
       isBike: false,
       camMode: hud.camMode,
       time: state.clock.elapsedTime,
