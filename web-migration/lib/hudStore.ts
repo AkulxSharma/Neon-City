@@ -97,6 +97,14 @@ export const useHudStore = create<HudState>((set, get) => ({
   setActive: (m) => set({ active: m }),
   setCamMode: (m) => set({ camMode: m }),
   cycleCamMode: () => set((s) => ({ camMode: (((s.camMode + 1) % 4) as CamMode) })),
+  setLightMode: (m) => set({ lightMode: m }),
+  // returns the new mode so the caller can name it in the on-screen message
+  // without a second getState() read
+  cycleLightMode: () => {
+    const next = (((get().lightMode + 1) % 3) as LightMode);
+    set({ lightMode: next });
+    return next;
+  },
   setHint: (h) => set({ hint: h }),
   showMsg: (text) => {
     set({ msg: text });
