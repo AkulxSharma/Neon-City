@@ -37,6 +37,7 @@ export function saveGame() {
     const data: SaveData = {
       active: hud.active,
       camMode: hud.camMode,
+      lightMode: hud.lightMode,
       muted: isMuted(),
       dayPhase: skyState.phase,
       vehicles: vehicleState,
