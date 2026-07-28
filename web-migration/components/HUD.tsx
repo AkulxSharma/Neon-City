@@ -99,6 +99,8 @@ export function HUD() {
         <br />
         <b>C</b> camera view
         <br />
+        <b>L</b> headlights auto/on/off
+        <br />
         <b>M</b> mute engine
         <br />
         <b>G</b> map / directions
