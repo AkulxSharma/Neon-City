@@ -21,7 +21,17 @@ const DROWN_LIMIT = 2; // seconds in open water before respawn
 // a short hop, 20 otherwise) — same numbers, just fed through Rapier's
 // KinematicCharacterController (same one Car/Bike use) instead of the
 // original's own collide()/py ballistic tracking.
-const TURN_RATE = 2.6;
+// How fast the character snaps to face a new input direction. Deliberately
+// much quicker than the original's 2.6 rad/s: under camera-relative control
+// this is a turn-to-face, not a steering rate, so it should read as "he turned"
+// rather than "he slowly swung round".
+const TURN_RATE = 11;
+// How fast the chase camera drifts back behind him, and only while he's
+// running roughly forward (see alignK below). Holding A or D alone leaves the
+// camera where it is, so you watch him turn and run off sideways instead of
+// the whole world swinging — which was the complaint with the original's
+// tank controls.
+const CAM_FOLLOW = 0.22;
 const WALK_SPEED = 4.5;
 const SPRINT_SPEED = 9;
 const JUMP_VY = 7.5;
