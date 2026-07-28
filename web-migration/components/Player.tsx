@@ -9,6 +9,7 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
 import { applyCameraRig } from "@/lib/cameraRig";
+import { cameraLook } from "@/lib/cameraLook";
 import { playerTeleport } from "@/lib/playerTeleport";
 import { SHORE_X } from "@/lib/marina";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
@@ -132,11 +133,16 @@ export function Player() {
     // down that means "actually travelling", used to drive the walk cycle
     const hasInput = ix !== 0 || iz !== 0;
 
+    // Movement is relative to where the camera is actually pointing, which
+    // includes whatever the mouse is leaning it by (lib/cameraLook.ts) — so
+    // leaning the view and pressing W walks him that way.
+    const viewYaw = camYaw.current + cameraLook.yaw;
+
     if (hasInput) {
       // Screen-space -> world heading. With this build's convention
       // (dir = [sin h, cos h]) the camera's right vector is [-cos h, sin h],
-      // which is heading camYaw - PI/2 — hence the minus on the atan2.
-      const desired = camYaw.current - Math.atan2(ix, iz);
+      // which is heading viewYaw - PI/2 — hence the minus on the atan2.
+      const desired = viewYaw - Math.atan2(ix, iz);
       // shortest way round, so turning from ~PI to ~-PI doesn't take the long lap
       const diff = Math.atan2(Math.sin(desired - foot.current.h), Math.cos(desired - foot.current.h));
       foot.current.h += clamp(diff, -TURN_RATE * d, TURN_RATE * d);
@@ -154,7 +160,12 @@ export function Player() {
     // input is: running forward re-centres it, strafing left/right doesn't
     // touch it. Without that gate, holding D would rotate the camera, which
     // would rotate what "right" means, and he'd spin on the spot forever.
-    const alignK = Math.max(0, iz);
+    //
+    // Frozen entirely while the mouse is leaning the view, for the same
+    // reason: if the base yaw chased him while the lean kept adding to it,
+    // holding W with the cursor off-centre would walk him in circles. Frozen,
+    // he turns once to the leant angle and then runs straight along it.
+    const alignK = cameraLook.active ? 0 : Math.max(0, iz);
     if (alignK > 0) {
       const camDiff = Math.atan2(Math.sin(foot.current.h - camYaw.current), Math.cos(foot.current.h - camYaw.current));
       camYaw.current += camDiff * (1 - Math.pow(CAM_FOLLOW, d)) * alignK;

@@ -37,6 +37,15 @@ export function MouseLook() {
 
   useEffect(() => {
     const el = gl.domElement;
+    // The cursor is the camera control now, so a visible arrow sitting in the
+    // middle of the scene is just clutter. Hidden over the canvas only — the
+    // HUD's map and camera buttons are DOM overlays and keep their pointer.
+    // Mutating the canvas the renderer hands back is the same imperative
+    // escape hatch SkyCycle.tsx uses on gl.toneMappingExposure — the lint rule
+    // is aimed at React state, not at the live WebGL canvas element.
+    const prevCursor = el.style.cursor;
+    // eslint-disable-next-line react-hooks/immutability
+    el.style.cursor = "none";
 
     const onMove = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
@@ -63,6 +72,7 @@ export function MouseLook() {
     el.addEventListener("pointerleave", onLeave);
     window.addEventListener("blur", onLeave);
     return () => {
+      el.style.cursor = prevCursor;
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("blur", onLeave);
