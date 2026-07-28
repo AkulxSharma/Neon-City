@@ -6,6 +6,11 @@ export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat";
 export type ActiveMode = VehicleKind | "foot";
 export const CAM_MODES = ["CHASE", "COCKPIT", "HOOD", "CINE"] as const;
 export type CamMode = 0 | 1 | 2 | 3;
+// headlights, cycled with L — same three states and same order as the
+// original's `lightMode` (index.html ~6480): AUTO follows the day/night
+// cycle, ON forces them on in daylight, OFF kills them entirely
+export const LIGHT_MODES = ["AUTO", "ON", "OFF"] as const;
+export type LightMode = 0 | 1 | 2;
 
 // B still only quick-switches the original 3 owned vehicles — policeCar/patrolBoat
 // are parked at the station/marina and reached by walking up + E, same as any
