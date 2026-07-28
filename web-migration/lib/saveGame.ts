@@ -1,6 +1,6 @@
 import { vehicleState } from "@/lib/vehicleState";
 import { skyState } from "@/lib/skyState";
-import { useHudStore, type ActiveMode, type CamMode } from "@/lib/hudStore";
+import { useHudStore, type ActiveMode, type CamMode, type LightMode } from "@/lib/hudStore";
 import { isMuted } from "@/lib/audio";
 
 const SAVE_KEY = "ncd_web_save_v1";
@@ -8,6 +8,9 @@ const SAVE_KEY = "ncd_web_save_v1";
 interface SaveData {
   active: ActiveMode;
   camMode: CamMode;
+  // optional: saves written before headlights existed won't have it, and the
+  // loader falls back to AUTO rather than crashing on an older save
+  lightMode?: LightMode;
   muted: boolean;
   dayPhase: number;
   vehicles: typeof vehicleState;
@@ -34,6 +37,7 @@ export function saveGame() {
     const data: SaveData = {
       active: hud.active,
       camMode: hud.camMode,
+      lightMode: hud.lightMode,
       muted: isMuted(),
       dayPhase: skyState.phase,
       vehicles: vehicleState,

@@ -6,6 +6,11 @@ export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat";
 export type ActiveMode = VehicleKind | "foot";
 export const CAM_MODES = ["CHASE", "COCKPIT", "HOOD", "CINE"] as const;
 export type CamMode = 0 | 1 | 2 | 3;
+// headlights, cycled with L — same three states and same order as the
+// original's `lightMode` (index.html ~6480): AUTO follows the day/night
+// cycle, ON forces them on in daylight, OFF kills them entirely
+export const LIGHT_MODES = ["AUTO", "ON", "OFF"] as const;
+export type LightMode = 0 | 1 | 2;
 
 // B still only quick-switches the original 3 owned vehicles — policeCar/patrolBoat
 // are parked at the station/marina and reached by walking up + E, same as any
@@ -29,6 +34,7 @@ interface HudState {
   grounded: boolean;
   active: ActiveMode;
   camMode: CamMode;
+  lightMode: LightMode;
   hint: string | null;
   msg: string | null;
   nitroFuel: number; // 0..1
@@ -47,6 +53,8 @@ interface HudState {
   setActive: (m: ActiveMode) => void;
   setCamMode: (m: CamMode) => void;
   cycleCamMode: () => void;
+  setLightMode: (m: LightMode) => void;
+  cycleLightMode: () => LightMode;
   setHint: (h: string | null) => void;
   showMsg: (text: string) => void;
   setNitro: (fuel: number, active: boolean) => void;
@@ -69,6 +77,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   grounded: true,
   active: "car",
   camMode: 0,
+  lightMode: 0,
   hint: null,
   msg: null,
   nitroFuel: 1,
@@ -88,6 +97,14 @@ export const useHudStore = create<HudState>((set, get) => ({
   setActive: (m) => set({ active: m }),
   setCamMode: (m) => set({ camMode: m }),
   cycleCamMode: () => set((s) => ({ camMode: (((s.camMode + 1) % 4) as CamMode) })),
+  setLightMode: (m) => set({ lightMode: m }),
+  // returns the new mode so the caller can name it in the on-screen message
+  // without a second getState() read
+  cycleLightMode: () => {
+    const next = (((get().lightMode + 1) % 3) as LightMode);
+    set({ lightMode: next });
+    return next;
+  },
   setHint: (h) => set({ hint: h }),
   showMsg: (text) => {
     set({ msg: text });

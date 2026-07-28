@@ -9,19 +9,34 @@ import { useKeyboard } from "@/lib/useKeyboard";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
 import { applyCameraRig } from "@/lib/cameraRig";
+import { cameraLook } from "@/lib/cameraLook";
 import { playerTeleport } from "@/lib/playerTeleport";
 import { SHORE_X } from "@/lib/marina";
 import type { KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const DROWN_LIMIT = 2; // seconds in open water before respawn
 
-// Ported from the original's on-foot tick() block: turn 2.6 rad/s, walk 4.5
-// m/s / sprint 9 m/s (SHIFT), accel/decel ramp (30 accelerating, 36 braking),
-// jump vy=7.5 with asymmetric gravity (46 while rising and released early for
-// a short hop, 20 otherwise) — same numbers, just fed through Rapier's
+// Ported from the original's on-foot tick() block: walk 4.5 m/s / sprint 9 m/s
+// (SHIFT), accel/decel ramp (30 accelerating, 36 braking), jump vy=7.5 with
+// asymmetric gravity (46 while rising and released early for a short hop, 20
+// otherwise) — same numbers, just fed through Rapier's
 // KinematicCharacterController (same one Car/Bike use) instead of the
 // original's own collide()/py ballistic tracking.
-const TURN_RATE = 2.6;
+//
+// Steering is the one deliberate departure: the original used tank controls
+// (A/D = `player.h += 2.6*dt`), which under a chase camera locked to that
+// heading looked like the world swinging rather than the character turning.
+// See the camera-relative block in useFrame.
+//
+// How fast he snaps to face a new input direction. Much quicker than the
+// original's 2.6 rad/s because this is now a turn-to-face, not a steering rate.
+const TURN_RATE = 11;
+// How fast the chase camera drifts back behind him, and only while he's
+// running roughly forward (see alignK below). Holding A or D alone leaves the
+// camera where it is, so you watch him turn and run off sideways instead of
+// the whole world swinging — which was the complaint with the original's
+// tank controls.
+const CAM_FOLLOW = 0.22;
 const WALK_SPEED = 4.5;
 const SPRINT_SPEED = 9;
 const JUMP_VY = 7.5;
@@ -43,6 +58,11 @@ export function Player() {
   const { camera } = useThree();
 
   const foot = useRef({ h: START.h, speed: 0, vy: 0 });
+  // The chase camera's own yaw, tracked separately from the character's
+  // heading so input can be read relative to where the camera is actually
+  // looking. Vehicles keep using their own heading directly — this is on-foot
+  // only.
+  const camYaw = useRef(START.h);
   const walkPhase = useRef(0);
   const spaceWasDown = useRef(false);
   const groundedRef = useRef(true);
@@ -77,6 +97,7 @@ export function Player() {
       playerTeleport.pending = false;
       body.setTranslation({ x: playerTeleport.x, y: 1, z: playerTeleport.z }, true);
       foot.current.h = playerTeleport.h;
+      camYaw.current = playerTeleport.h; // snap, don't let the camera swing in from the old heading
       foot.current.speed = 0;
       foot.current.vy = 0;
       worldState.px = playerTeleport.x;
@@ -100,14 +121,55 @@ export function Player() {
     const d = Math.min(dt, 0.05);
     const k = keys.current;
 
-    if (k.left) foot.current.h += TURN_RATE * d;
-    if (k.right) foot.current.h -= TURN_RATE * d;
+    // Camera-relative movement, replacing the original's tank controls (its
+    // on-foot block just did `player.h += 2.6*dt` on A/D). Turning in place
+    // while the chase camera rigidly tracked that heading meant you only ever
+    // saw the character's back, so pressing A/D read as the world swinging
+    // rather than him turning. Now WASD names a direction on screen, he turns
+    // to face it, and the camera holds still while he does.
+    const ix = (k.right ? 1 : 0) - (k.left ? 1 : 0);
+    const iz = (k.forward ? 1 : 0) - (k.back ? 1 : 0);
+    // named for the INPUT, not the speed — there's a separate `moving` further
+    // down that means "actually travelling", used to drive the walk cycle
+    const hasInput = ix !== 0 || iz !== 0;
 
-    const move = k.forward ? 1 : k.back ? -0.6 : 0;
+    // Movement is relative to where the camera is actually pointing, which
+    // includes whatever the mouse is leaning it by (lib/cameraLook.ts) — so
+    // leaning the view and pressing W walks him that way.
+    const viewYaw = camYaw.current + cameraLook.yaw;
+
+    if (hasInput) {
+      // Screen-space -> world heading. With this build's convention
+      // (dir = [sin h, cos h]) the camera's right vector is [-cos h, sin h],
+      // which is heading viewYaw - PI/2 — hence the minus on the atan2.
+      const desired = viewYaw - Math.atan2(ix, iz);
+      // shortest way round, so turning from ~PI to ~-PI doesn't take the long lap
+      const diff = Math.atan2(Math.sin(desired - foot.current.h), Math.cos(desired - foot.current.h));
+      foot.current.h += clamp(diff, -TURN_RATE * d, TURN_RATE * d);
+    }
+
+    // He always walks the way he faces now, so there's no reverse gear on foot
+    // — S turns him around instead of backing him up.
+    const move = hasInput ? 1 : 0;
     const sprint = k.boost;
     const sp = sprint ? SPRINT_SPEED : WALK_SPEED;
     const moveStep = (move !== 0 ? 30 : 36) * d;
     foot.current.speed += clamp(move * sp - foot.current.speed, -moveStep, moveStep);
+
+    // Camera eases back behind him only in proportion to how forward-ish the
+    // input is: running forward re-centres it, strafing left/right doesn't
+    // touch it. Without that gate, holding D would rotate the camera, which
+    // would rotate what "right" means, and he'd spin on the spot forever.
+    //
+    // Frozen entirely while the mouse is leaning the view, for the same
+    // reason: if the base yaw chased him while the lean kept adding to it,
+    // holding W with the cursor off-centre would walk him in circles. Frozen,
+    // he turns once to the leant angle and then runs straight along it.
+    const alignK = cameraLook.active ? 0 : Math.max(0, iz);
+    if (alignK > 0) {
+      const camDiff = Math.atan2(Math.sin(foot.current.h - camYaw.current), Math.cos(foot.current.h - camYaw.current));
+      camYaw.current += camDiff * (1 - Math.pow(CAM_FOLLOW, d)) * alignK;
+    }
 
     // jump: Space edge-triggers, only from the ground; holding it through the
     // rise keeps full gravity (long jump), releasing early steepens it (short hop)
@@ -137,6 +199,7 @@ export function Player() {
         drownTime.current = 0;
         body.setTranslation({ x: START.x, y: 1, z: START.z }, true);
         foot.current.h = START.h;
+        camYaw.current = START.h;
         foot.current.speed = 0;
         foot.current.vy = 0;
         worldState.px = START.x;
@@ -189,7 +252,9 @@ export function Player() {
       tx: nextPos.x,
       ty: nextPos.y,
       tz: nextPos.z,
-      th: foot.current.h,
+      // chase orbits the camera's own lagging yaw so a turn is visible; the
+      // first-person and cinematic modes still key off where he's actually facing
+      th: hud.camMode === 0 ? camYaw.current : foot.current.h,
       isBike: false,
       camMode: hud.camMode,
       time: state.clock.elapsedTime,

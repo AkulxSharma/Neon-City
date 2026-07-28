@@ -20,7 +20,7 @@ import { ClubInterior } from "@/components/ClubInterior";
 import { AudioEngine } from "@/components/AudioEngine";
 import { WaypointTracker } from "@/components/WaypointTracker";
 import { HUD } from "@/components/HUD";
-import { useHudStore } from "@/lib/hudStore";
+import { useHudStore, LIGHT_MODES } from "@/lib/hudStore";
 import { initAudio, toggleMute, setMuted } from "@/lib/audio";
 import { loadSave, saveGame } from "@/lib/saveGame";
 import { clubDoorAction } from "@/lib/club";
@@ -32,6 +32,8 @@ import { PatrolBoat } from "@/components/PatrolBoat";
 import { PoliceStation } from "@/components/PoliceStation";
 import { Marina } from "@/components/Marina";
 import { Props } from "@/components/Props";
+import { Headlights } from "@/components/Headlights";
+import { MouseLook } from "@/components/MouseLook";
 
 const CYCLABLE = new Set(["car", "bike", "boat"]);
 
@@ -53,6 +55,7 @@ export default function Game() {
     const save = loadSave();
     if (!save) return;
     useHudStore.getState().setCamMode(save.camMode);
+    useHudStore.getState().setLightMode(save.lightMode ?? 0);
     setMuted(save.muted);
     // don't restore `active` via toggleActive (cycles relative to current, and
     // can only ever reach car/bike/boat — see hudStore.toggleActive's no-op-on-foot
@@ -86,6 +89,8 @@ export default function Game() {
         hud.showMsg("SWITCHED TO: " + hud.vehicleName());
       } else if (e.code === "KeyC") {
         hud.cycleCamMode();
+      } else if (e.code === "KeyL") {
+        hud.showMsg("HEADLIGHTS: " + LIGHT_MODES[hud.cycleLightMode()]);
       } else if (e.code === "KeyM") {
         hud.showMsg(toggleMute() ? "MUTED" : "UNMUTED");
       } else if (e.code === "KeyG") {
@@ -108,6 +113,10 @@ export default function Game() {
       <Canvas shadows dpr={1} camera={{ fov: 65, near: 0.1, far: 1000 }} gl={{ toneMappingExposure: 1.5 }}>
         <Suspense fallback={null}>
           <SkyCycle />
+          {/* outside <Physics> on purpose — lights have no bodies/colliders,
+              and this one only reads worldState, which every vehicle writes */}
+          <Headlights />
+          <MouseLook />
           <AudioEngine />
           <WaypointTracker />
           <Physics gravity={[0, -9.81, 0]}>

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { cameraLook } from "@/lib/cameraLook";
 
 // Ported directly from the original's camera block in tick() (camMode 0-3:
 // chase/cockpit/hood/cinematic) — same distances, heights, and cinematic
@@ -38,14 +39,27 @@ export function applyCameraRig({ camera, camPos, camLook, tx, ty, tz, th, isBike
   const dz = Math.cos(th);
 
   if (camMode === 0) {
-    // chase
+    // chase — the only mode the optional hover look applies to. Both offsets
+    // are 0 while the cursor sits in the middle dead zone, so this is the
+    // original behaviour verbatim when the mouse is left alone (lib/cameraLook.ts).
+    const oa = th + cameraLook.yaw;
+    const ox = Math.sin(oa);
+    const oz = Math.cos(oa);
     const dist = 9.5;
-    const h = ty + 4.2;
-    const want = new THREE.Vector3(tx - dx * dist, h, tz - dz * dist);
-    const k = 1 - Math.pow(0.0015, dt);
+    // pitch raises/lowers the camera and pulls it in a little as it climbs, so
+    // looking down doesn't leave it hanging out at full chase distance
+    const h = ty + 4.2 + cameraLook.pitch * 5.5;
+    const orbit = dist * (1 - Math.max(0, cameraLook.pitch) * 0.25);
+    const want = new THREE.Vector3(tx - ox * orbit, h, tz - oz * orbit);
+    // tighten the follow while the cursor is leaning the view, so the lean
+    // reads as a deliberate camera move rather than the usual lazy drift
+    const k = 1 - Math.pow(cameraLook.active ? 0.00002 : 0.0015, dt);
     camPos.lerp(want, k);
     camera.position.copy(camPos);
-    camLook.lerp(new THREE.Vector3(tx + dx * 4, ty + 1.6, tz + dz * 4), 1 - Math.pow(0.0005, dt));
+    camLook.lerp(
+      new THREE.Vector3(tx + ox * 4, ty + 1.6 - cameraLook.pitch * 1.2, tz + oz * 4),
+      1 - Math.pow(cameraLook.active ? 0.00002 : 0.0005, dt),
+    );
     camera.lookAt(camLook);
   } else if (camMode === 1 || camMode === 2) {
     // cockpit / hood
