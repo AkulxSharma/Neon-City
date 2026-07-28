@@ -33,6 +33,7 @@ import { PoliceStation } from "@/components/PoliceStation";
 import { Marina } from "@/components/Marina";
 import { Props } from "@/components/Props";
 import { Headlights } from "@/components/Headlights";
+import { MouseLook } from "@/components/MouseLook";
 
 const CYCLABLE = new Set(["car", "bike", "boat"]);
 
@@ -115,6 +116,7 @@ export default function Game() {
           {/* outside <Physics> on purpose — lights have no bodies/colliders,
               and this one only reads worldState, which every vehicle writes */}
           <Headlights />
+          <MouseLook />
           <AudioEngine />
           <WaypointTracker />
           <Physics gravity={[0, -9.81, 0]}>

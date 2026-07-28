@@ -97,6 +97,8 @@ export function HUD() {
         <br />
         <b>B</b> switch vehicle
         <br />
+        <b>DRAG</b> pan camera
+        <br />
         <b>C</b> camera view
         <br />
         <b>L</b> headlights auto/on/off
