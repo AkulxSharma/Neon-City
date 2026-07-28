@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { CarMesh } from "@/components/Car";
+import { RIDE_HEIGHT, styleFor, type CarStyle } from "@/components/SupercarBody";
 import { PoliceCarMesh } from "@/components/PoliceCar";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
@@ -68,9 +69,43 @@ const LANES: Lane[] = [
   { axis: "z", lane: 50, min: -85, max: 85, speed: 10, color: "#0c0c0e", police: true },
 ];
 
-// read by Minimap.tsx to draw traffic blips — same shared-singleton pattern as
-// skyState/worldState, updated in place (not replaced) so it never allocates
-export const trafficPositions: { x: number; z: number }[] = LANES.map(() => ({ x: 0, z: 0 }));
+// Live per-lane traffic slot — same shared-singleton pattern as skyState/
+// worldState, updated in place (not replaced) so it never allocates. Read by
+// Minimap.tsx for blips and by lib/steal.ts, which needs the pose AND the
+// paint/roofline so the car you drive away looks like the one you walked up to.
+export interface TrafficSlot {
+  x: number;
+  z: number;
+  h: number;
+  color: string;
+  style: CarStyle;
+  police: boolean;
+  // taken by the player (lib/steal.ts): the NPC is hidden and inert until
+  // respawnIn runs out, then it re-enters at the end of its lane as a fresh car
+  stolen: boolean;
+  respawnIn: number;
+}
+
+// styleFor(i) rather than the random roll CarMesh does by default: SupercarBody
+// already documents the style pick as "deterministic so a given traffic lane
+// always renders the same car", but no call site was passing a seed, so every
+// remount reshuffled the street. Seeding it here also makes the roofline
+// knowable from outside, which is what lets a stolen car keep its silhouette.
+export const trafficPositions: TrafficSlot[] = LANES.map((l, i) => ({
+  x: 0,
+  z: 0,
+  h: 0,
+  color: l.color,
+  style: styleFor(i),
+  police: !!l.police,
+  stolen: false,
+  respawnIn: 0,
+}));
+
+// How long a stolen lane stays empty before a replacement car enters. Long
+// enough that the swap doesn't read as a pop-in, short enough that repeatedly
+// stealing doesn't visibly thin the city out.
+export const RESPAWN_DELAY = 14;
 
 export function Traffic() {
   return (
@@ -92,8 +127,24 @@ const LANE_OFFSET = 3; // sideways shift off the road centreline (road is 20 wid
 // policeCar are kept live every frame by their own components regardless of
 // which one is actually active (a parked-and-abandoned car still updates
 // its own x/z), so this also works if the player gets out and walks away.
+//
+// The player ON FOOT is in this list too. Traffic cars carry no collider at
+// all (kinematic, driven purely by the scripted lane position below), and
+// Rapier never resolves kinematic-vs-kinematic overlap anyway, so nothing in
+// the physics world was stopping a lane car driving clean through someone
+// standing in the road. worldState.px/pz IS the on-foot position whenever
+// `foot` is the active mode, so no new plumbing is needed to find them.
+const obstacles: { x: number; z: number }[] = [];
+const footPos = { x: 0, z: 0 }; // scratch, so the on-foot check allocates nothing per frame
 function laneBlocked(lane: Lane, nextPos: number, dir: number): boolean {
-  for (const v of [vehicleState.car, vehicleState.bike, vehicleState.policeCar]) {
+  obstacles.length = 0; // reused across frames/cars — never reallocated
+  obstacles.push(vehicleState.car, vehicleState.bike, vehicleState.policeCar);
+  if (useHudStore.getState().active === "foot") {
+    footPos.x = worldState.px;
+    footPos.z = worldState.pz;
+    obstacles.push(footPos);
+  }
+  for (const v of obstacles) {
     const along = lane.axis === "x" ? v.x : v.z;
     const across = lane.axis === "x" ? v.z : v.x;
     if (Math.abs(across - lane.lane) > LANE_HALF_WIDTH) continue; // not in this lane
@@ -110,11 +161,31 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
   const recruited = useRef(false);
   const convoyPos = useRef<{ x: number; z: number } | null>(null);
   const lightRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const meshRef = useRef<THREE.Group>(null);
 
   useFrame((state, dt) => {
     const body = bodyRef.current;
     if (!body) return;
     const d = Math.min(dt, 0.05);
+    const slot = trafficPositions[index];
+
+    // stolen (lib/steal.ts): the player is driving this car now, so the NPC
+    // copy hides and stops moving. Minimap.tsx skips the blip on the same
+    // flag — the slot keeps its last coords rather than being parked at a
+    // sentinel, so nothing downstream has to guard against a junk position.
+    if (slot.stolen) {
+      if (meshRef.current) meshRef.current.visible = false;
+      slot.respawnIn -= d;
+      if (slot.respawnIn <= 0) {
+        slot.stolen = false;
+        // re-enter from whichever end it was heading away from
+        pos.current = dir.current > 0 ? lane.min : lane.max;
+        recruited.current = false;
+        convoyPos.current = null;
+      }
+      return;
+    }
+    if (meshRef.current) meshRef.current.visible = true;
 
     // background lane math always advances, even while convoying, so dropping
     // out of the convoy resumes patrol from a live position instead of
@@ -193,22 +264,25 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
       if (lightRefs.current[1]) lightRefs.current[1].color.set(flashRed ? "#0a1030" : "#2040ff");
     }
 
-    body.setNextKinematicTranslation({ x, y: 0.98, z });
+    body.setNextKinematicTranslation({ x, y: RIDE_HEIGHT, z });
     body.setNextKinematicRotation(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading));
-    trafficPositions[index].x = x;
-    trafficPositions[index].z = z;
+    slot.x = x;
+    slot.z = z;
+    slot.h = heading; // lib/steal.ts hands this straight to the vehicle you take over
   });
 
   return (
-    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, 0.98, 0]}>
+    <RigidBody ref={bodyRef} type="kinematicPosition" colliders={false} position={[0, RIDE_HEIGHT, 0]}>
       {/* detail="low" — a dozen NPC cars are never seen close enough for
           spokes/mirrors/occupants to be more than a pixel, and skipping them
           keeps the draw-call count from tripling as traffic density grew */}
-      {lane.police ? (
-        <PoliceCarMesh lightRefs={lightRefs} detail="low" />
-      ) : (
-        <CarMesh color={lane.color} detail="low" />
-      )}
+      <group ref={meshRef}>
+        {lane.police ? (
+          <PoliceCarMesh lightRefs={lightRefs} detail="low" />
+        ) : (
+          <CarMesh color={lane.color} style={trafficPositions[index].style} detail="low" />
+        )}
+      </group>
     </RigidBody>
   );
 }

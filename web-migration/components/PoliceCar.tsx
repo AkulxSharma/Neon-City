@@ -13,7 +13,7 @@ import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
-import { SupercarBody, type Detail } from "@/components/SupercarBody";
+import { SupercarBody, RIDE_HEIGHT, type Detail } from "@/components/SupercarBody";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
 const GRAVITY_PULL = -12;
@@ -69,7 +69,7 @@ export function PoliceCar() {
 
     if (isActive && teleportRequest.pending) {
       teleportRequest.pending = false;
-      body.setTranslation({ x: teleportRequest.x, y: 1, z: teleportRequest.z }, true);
+      body.setTranslation({ x: teleportRequest.x, y: RIDE_HEIGHT, z: teleportRequest.z }, true);
       car.current.h = teleportRequest.h;
       car.current.speed = 0;
       car.current.vLat = 0;
@@ -142,9 +142,15 @@ export function PoliceCar() {
       ref={bodyRef}
       type="kinematicPosition"
       colliders={false}
-      position={[save?.x ?? vehicleState.policeCar.x, 1, save?.z ?? vehicleState.policeCar.z]}
+      position={[save?.x ?? vehicleState.policeCar.x, RIDE_HEIGHT, save?.z ?? vehicleState.policeCar.z]}
     >
-      <CuboidCollider ref={colliderRef} args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]} />
+      {/* Same drop as Car.tsx — collider bottom on the tyre contact patch, not
+          on the mesh origin, or snapToGround buries the cruiser 0.305m. */}
+      <CuboidCollider
+        ref={colliderRef}
+        args={[carBox.x / 2, carBox.y / 2, carBox.z / 2]}
+        position={[0, carBox.y / 2 - RIDE_HEIGHT, 0]}
+      />
       <PoliceCarMesh lightRefs={lightRefs} />
     </RigidBody>
   );
