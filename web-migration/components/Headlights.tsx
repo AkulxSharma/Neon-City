@@ -55,6 +55,11 @@ export function Headlights() {
     const lTarget = leftTarget.current;
     const rTarget = rightTarget.current;
     if (!left || !right || !lTarget || !rTarget) return;
+    // Wired here rather than as a `target` prop: the target refs are still
+    // null on the first render pass, and R3F would not re-apply the prop once
+    // they populate.
+    if (left.target !== lTarget) left.target = lTarget;
+    if (right.target !== rTarget) right.target = rTarget;
 
     const hud = useHudStore.getState();
     // On foot there is no car to light the way with, and the club is its own
