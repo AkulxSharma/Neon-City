@@ -86,6 +86,8 @@ export default function Game() {
         hud.showMsg("SWITCHED TO: " + hud.vehicleName());
       } else if (e.code === "KeyC") {
         hud.cycleCamMode();
+      } else if (e.code === "KeyL") {
+        hud.showMsg("HEADLIGHTS: " + LIGHT_MODES[hud.cycleLightMode()]);
       } else if (e.code === "KeyM") {
         hud.showMsg(toggleMute() ? "MUTED" : "UNMUTED");
       } else if (e.code === "KeyG") {
