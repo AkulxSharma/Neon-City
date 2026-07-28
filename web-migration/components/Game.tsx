@@ -32,6 +32,7 @@ import { PatrolBoat } from "@/components/PatrolBoat";
 import { PoliceStation } from "@/components/PoliceStation";
 import { Marina } from "@/components/Marina";
 import { Props } from "@/components/Props";
+import { Headlights } from "@/components/Headlights";
 
 const CYCLABLE = new Set(["car", "bike", "boat"]);
 
