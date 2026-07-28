@@ -77,6 +77,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   grounded: true,
   active: "car",
   camMode: 0,
+  lightMode: 0,
   hint: null,
   msg: null,
   nitroFuel: 1,
