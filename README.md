@@ -81,11 +81,16 @@ map is open, so you can click a destination normally.
   formation, and patrol boats out on the water.
 - **Coast and marina.** The city ends at a shoreline; beyond it is open water
   with a marina, piers, and drowning physics for anything that isn't a hull.
+- **International airport.** A real-scale 420m runway with lighting, a
+  terminal pier with jet bridges, a control tower, hangars, and a cargo yard.
+  Aircraft fly a full taxi/takeoff/circuit/land loop; ground service vehicles
+  run the apron.
 - **Club interior.** Walk through the door and the scene switches to a dance
   floor with its own crowd.
-- **Navigation.** 9 landmarks at the original game's exact coordinates, a
+- **Navigation.** Landmarks at the original game's exact coordinates, a
   minimap, a full-screen map with routing, and a waypoint arrow.
-- **Day/night cycle**, dynamic headlights, HUD with speedo and nitro gauge,
+- **Day/night cycle**, weather you can cycle on demand, headlights on every
+  car (not just yours) that respond to both, HUD with speedo and nitro gauge,
   procedural audio, and autosave to `localStorage`.
 
 Per-milestone detail — including what is real versus what is still a documented
