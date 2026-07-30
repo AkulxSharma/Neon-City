@@ -74,6 +74,7 @@ export function Plane() {
     vehicleState.plane.x = pos.current.x;
     vehicleState.plane.z = pos.current.z;
     vehicleState.plane.h = fs.current.h;
+    vehicleState.plane.y = pos.current.y;
 
     if (!isActive) return;
     worldState.px = pos.current.x;
