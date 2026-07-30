@@ -8,6 +8,7 @@ import { useHudStore } from "@/lib/hudStore";
 import { SHORE_X } from "@/lib/marina";
 import { PersonFigure, PERSON_MODEL_HEIGHT } from "@/components/PersonFigure";
 import { AIRPORT_CHUNKS } from "@/components/City";
+import { requestPedestrianHitSlowdown } from "@/lib/pedestrianHit";
 
 // Real port of the original's pedestrian system (index.html ~line 6148-6182,
 // 7591-7632): 44 civilians + 7 cops, each walking a 72m square loop around a
