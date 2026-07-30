@@ -167,6 +167,13 @@ export function Car() {
 
     if (isActive) {
       checkCrashDebris(crashCooldown, d, { x: dx, z: dz }, { x: movement.x, z: movement.z }, Math.abs(car.current.speed), nextPos, car.current.h);
+      // Pedestrians.tsx set this the instant it ragdolled someone under THIS
+      // car this frame — only the active vehicle can have caused it, since
+      // the hit-test runs against worldState (the active vehicle's own
+      // position). See lib/pedestrianHit.ts for why this can't just be a
+      // direct call between the two components.
+      const hitSlow = consumePedestrianHitSlowdown();
+      if (hitSlow !== null) car.current.speed *= hitSlow;
     }
 
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), car.current.h);
