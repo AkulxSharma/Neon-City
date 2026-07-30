@@ -123,8 +123,10 @@ python3 -m http.server 8000   # then visit http://localhost:8000/
 What it has that the port hasn't reached yet:
 
 - **Real NYC building footprints** woven into the procedural grid.
-- **Weather system** (`V`) and **graphics-quality cycling** (`Q`).
-- **Day/night toggle** (`N`) and headlight modes / police siren (`L`).
+- **Manual day/night toggle** (`N`) and **graphics-quality cycling** (`Q`) —
+  the port's day/night cycles on its own timer and has no quality tiers yet.
+- **Police siren** bound to `L` alongside headlight modes (the port's `L` is
+  headlights only; the siren runs automatically off the police vehicle).
 - **Car showroom** and a wider garage, including a Porsche 918 mesh.
 - **Cheat codes** — type `porche` (or `porsche`) to spawn a 918 in front of
   you, or `boat` to spawn a boat in the nearest water.
