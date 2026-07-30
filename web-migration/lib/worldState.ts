@@ -13,7 +13,13 @@
 // the road surface (visible as "only the top half of the car shows").
 // Seeding here, at module scope, means the first frame already knows where the
 // player is, so the ground under the spawn is never thrown away.
-export const worldState = { px: 0, pz: 0, heading: 0 };
+//
+// `py` is the player's own altitude — written by Player.tsx while on foot
+// (cars/bikes/boats sit close enough to 0 that they don't bother). It exists
+// only for lib/player.ts's mount-range scan: without it, a plane or
+// helicopter flying overhead reads as "in range, press E" from directly
+// underneath on the ground, because the scan only ever compared x/z.
+export const worldState = { px: 0, pz: 0, py: 0, heading: 0 };
 
 if (typeof window !== "undefined") {
   try {
