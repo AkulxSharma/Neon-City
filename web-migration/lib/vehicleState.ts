@@ -4,7 +4,12 @@ import type { VehicleKind } from "@/lib/hudStore";
 // one) — same shared-mutable-singleton pattern as skyState/worldState, so
 // saveGame.ts can snapshot all three without any vehicle needing to know
 // about persistence itself.
-export const vehicleState: Record<VehicleKind, { x: number; z: number; h: number }> = {
+// `y` is optional and only meaningful for plane/helicopter — Plane.tsx and
+// Helicopter.tsx are the only components that write it (see their own
+// per-frame vehicleState writes). Every other vehicle stays close enough to
+// ground/water level that lib/player.ts's mount-range scan treats a missing
+// `y` as 0, which is correct for all of them.
+export const vehicleState: Record<VehicleKind, { x: number; z: number; h: number; y?: number }> = {
   car: { x: 0, z: 0, h: 0 },
   bike: { x: -20, z: 0, h: 0 },
   boat: { x: 595, z: 0, h: Math.PI }, // in the water off EAST MARINA, matches Boat.tsx's own default
