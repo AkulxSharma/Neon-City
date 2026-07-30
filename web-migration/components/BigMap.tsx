@@ -84,6 +84,29 @@ export function BigMap() {
       }
       ctx.setLineDash([]);
 
+      // street names — Minimap.tsx has to rotate its labels upright as the
+      // player-centred radar spins with heading; this map is fixed north-up,
+      // so every label just sits flat along its road, no angle math needed.
+      // Reuses the exact same lib/streetNames.ts function Minimap.tsx does,
+      // so a given road always shows the same name on both maps.
+      ctx.font = "italic 600 11px system-ui, Arial, sans-serif";
+      ctx.fillStyle = "rgba(226,230,238,0.85)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (let x = Math.ceil((WX0 - 50) / CELL) * CELL + 50; x < WX1; x += CELL) {
+        if (x >= SHORE_X) continue; // no street signs out in the water
+        const [cx] = toPx(x, 0);
+        ctx.save();
+        ctx.translate(cx, 18);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(streetName(x, "x"), 0, 0);
+        ctx.restore();
+      }
+      for (let z = Math.ceil((WZ0 - 50) / CELL) * CELL + 50; z < WZ1; z += CELL) {
+        const [, cz] = toPx(0, z);
+        ctx.fillText(streetName(z, "z"), 42, cz);
+      }
+
       LANDMARKS.forEach((l, i) => {
         const [px, pz] = toPx(offRoad(l.x), offRoad(l.z));
         const r = l === navTarget ? 7 : 5;
