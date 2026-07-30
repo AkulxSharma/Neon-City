@@ -68,8 +68,10 @@ map is open, so you can click a destination normally.
   collision, buoyancy for boats, and a character controller for on-foot mode.
   The arcade driving feel is ported verbatim from the original's hand-tuned
   math rather than re-derived from forces.
-- **Three vehicle classes.** Cars, bikes, and boats, each with its own handling
-  model. Nitro on cars, buoyancy and heel on boats.
+- **A real garage.** Cars, bikes, and boats to quick-switch between, plus a
+  police cruiser, patrol boat, a small plane, a helicopter, and four
+  parked airliners at the international airport — walk up and press `E` for
+  any of them. Nitro on cars, buoyancy and heel on boats.
 - **Steal any car.** Walk up to a traffic car and press `E` to take it — paint
   and silhouette carry over, and a black-and-white hands you the police
   cruiser with its siren and convoy rig.
