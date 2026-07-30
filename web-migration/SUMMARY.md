@@ -1387,6 +1387,51 @@ AIRPORT), `components/Game.tsx` (mounts the 4 `DrivableAirliner`s),
 `components/Helicopter.tsx` (`HeliMesh` exported, reused for parked
 decorative helis).
 
+## Milestone 21 — three small fixes off Milestone 20's own "Next up" list (2026-07-31)
+
+**Goal:** Milestone 20 closed with a long list of named-but-not-done items.
+This picks off the three that were genuinely small and well-scoped rather
+than the big ones (airport perf pass, live flight-testing the new
+handling numbers) — real code, not more testing.
+
+**BigMap now has street names, same source as Minimap.** `Minimap.tsx` had
+a pure `streetName(coord, axis)` function + two name lists, naming every
+road deterministically; `BigMap.tsx` drew the identical road grid with no
+labels at all. Extracted both into new `lib/streetNames.ts` so the two
+maps import one canonical source instead of (as it would have been) two
+copies that could drift — a road shows the same name on both maps by
+construction. `BigMap.tsx` is fixed north-up and never rotates, so its
+version skips all of `Minimap.tsx`'s upright-angle math; it just draws each
+label flat along its road (vertical roads rotated 90°, horizontal roads
+plain). Verified live: opened the map, every visible road on both axes is
+labeled and matches the minimap's names for the same streets.
+
+**The car itself now loses speed when it hits a pedestrian.**
+`Pedestrians.tsx` already had the full ragdoll + hit-test port; the
+original's `v.speed*=0.9` on the vehicle's own side, fired in the same beat,
+had never been ported. The wiring problem: `Pedestrians.tsx` has no way to
+reach into `Car.tsx`/`Bike.tsx`/`PoliceCar.tsx`'s own component-local speed
+refs directly. Added `lib/pedestrianHit.ts` — a one-shot signal in the same
+shape as the existing `lib/playerTeleport.ts` (set by the component that
+detects the event, consumed-and-cleared by the interested component on its
+own next frame) — set the instant a hit registers, consumed by whichever
+land vehicle is actually driving at the same spot each of the three already
+calls `checkCrashDebris`.
+
+**Aircraft mount-hint is now a real 3D distance, not x/z only.** The named
+bug: a plane/helicopter flying overhead reads as "in range, press E" from
+directly underneath on the ground. Root cause was that nothing tracked
+altitude anywhere — `vehicleState` was typed `{x,z,h}` only, and
+`worldState` had no `y` at all. Added `y?: number` to `vehicleState` (only
+`Plane.tsx`/`Helicopter.tsx` ever write it, next to their existing x/z/h
+writes each frame; every other vehicle stays close enough to ground/water
+level that a missing `y` defaulting to 0 is correct) and `py` to
+`worldState` (written by `Player.tsx` on foot, next to its existing
+px/pz/heading write). `lib/player.ts`'s mount scan now compares
+`dx²+dy²+dz²` against the same `MOUNT_RADIUS2` instead of `dx²+dz²`.
+
+All three: `tsc --noEmit` and `eslint` clean, `next build` green.
+
 ## Next up
 
 World-scale, physics, maps, building variety, and city texture/detail
@@ -1395,7 +1440,8 @@ in Milestones 1-13; Milestone 18 layers weather, nitro FX, commercial
 traffic, and a flyable airport on top of that; Milestone 19 adds a security
 perimeter; Milestone 20 rebuilds the airport at real scale with drivable
 wide-bodies and fixes the three real access/population bugs the user found
-by actually playing it. Remaining, roughly by size:
+by actually playing it; Milestone 21 closes three of Milestone 20's smaller
+named gaps. Remaining, roughly by size:
 **a draw-call/perf pass on the airport specifically** — named honestly as
 not done in Milestone 20 (segment-count reduction + `InstancedMesh` for
 engine fan blades, runway/taxiway/approach lights, and cargo containers;
@@ -1408,17 +1454,12 @@ weather at least once in a real browser** to confirm the liftoff behaviour
 and handling constants feel right; **verify Milestone 13's ragdoll hit-test
 live** (carried over, still unconfirmed); the club interior's own
 deliberate simplifications (Milestone 9); the felony-stop convoy maneuver
-named and skipped in Milestone 11; the car's own `speed*=0.9` slowdown on
-hitting a pedestrian (Milestone 13); a perf pass on the rest of the city now
+named and skipped in Milestone 11; a perf pass on the rest of the city now
 that Milestones 16-18 add meaningfully more meshes per chunk/landmark
 (towers/apartments/townhouses/graffiti/commercial-vehicle bodies each render
 several sub-meshes); the garage bay's side walls/roof have no collider by
 design (visual only, so pulling in never gets stuck) — worth a follow-up
 pass if a player manages to clip through a side wall at speed;
 `laneBlocked()` only checks the 3 land vehicles, not other traffic cars
-against each other; the plane/helicopter/airliner mount-by-`E` hint uses 2D
-(x,z) distance only (`lib/player.ts`, generic/shared), so a high-altitude
-aircraft still reads as "in range" from directly below it on the ground;
-BigMap.tsx doesn't have street names yet, only Minimap.tsx; and the
-still-unconfirmed `dpr={1}`/`EffectComposer` render artifact from
-Milestone 13, still worth a real-hardware check.
+against each other; and the still-unconfirmed `dpr={1}`/`EffectComposer`
+render artifact from Milestone 13, still worth a real-hardware check.
