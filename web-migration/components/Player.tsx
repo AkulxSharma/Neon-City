@@ -217,6 +217,7 @@ export function Player() {
 
     worldState.px = nextPos.x;
     worldState.pz = nextPos.z;
+    worldState.py = nextPos.y;
     worldState.heading = foot.current.h;
 
     // limb animation — walk cycle, mid-air tuck, or (inClub, standing still) the
