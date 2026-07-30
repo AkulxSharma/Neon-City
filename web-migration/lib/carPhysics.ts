@@ -4,6 +4,8 @@
 // function (Rapier's KinematicCharacterController) — this only owns the "feel":
 // steering ramp, engine/drag, and lateral grip. See migration plan Phase 2.
 
+import { weatherState } from "@/lib/weatherState";
+
 export interface CarState {
   h: number; // heading, radians
   speed: number; // forward (longitudinal) velocity, m/s
@@ -132,8 +134,10 @@ export function stepCarPhysics(
   if (input.handbrake) vlong -= vlong * 1.8 * dt;
   vlong = clamp(vlong, -16, h.max);
 
-  // lateral grip: tyres bleed sideways velocity away; handbrake breaks traction
-  const grip = (input.handbrake ? 2.2 : h.grip) * 1;
+  // lateral grip: tyres bleed sideways velocity away; handbrake breaks traction.
+  // wetGrip is the original's rain penalty (index.html ~line 7258, alongside
+  // per-vehicle HANDLING) — shared here so every vehicle type gets it for free.
+  const grip = (input.handbrake ? 2.2 : h.grip) * weatherState.wetGrip;
   vlat -= vlat * clamp(grip * dt, 0, 1);
   vlat = clamp(vlat, -16, 16);
 

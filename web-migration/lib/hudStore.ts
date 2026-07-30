@@ -2,7 +2,13 @@ import { create } from "zustand";
 import { LANDMARKS, type Landmark } from "@/lib/landmarks";
 import type { CarStyle } from "@/components/SupercarBody";
 
-export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat";
+// airliner1/2/3 = the three gate-parked wide-bodies (components/Airport.tsx's
+// GATE_XS, gates 2/3/4), airlinerCargo = the freighter on the cargo apron.
+// The one airframe NOT in this union is the broken jet
+// (components/AirportLife.tsx's BrokenJet) — it has no vehicleState entry, no
+// mount trigger, nothing to fly, by design (wing off, under repair forever).
+export type AirlinerId = "airliner1" | "airliner2" | "airliner3" | "airlinerCargo";
+export type VehicleKind = "car" | "boat" | "bike" | "policeCar" | "patrolBoat" | "plane" | "helicopter" | AirlinerId;
 export type ActiveMode = VehicleKind | "foot";
 export const CAM_MODES = ["CHASE", "COCKPIT", "HOOD", "CINE"] as const;
 export type CamMode = 0 | 1 | 2 | 3;
@@ -12,9 +18,10 @@ export type CamMode = 0 | 1 | 2 | 3;
 export const LIGHT_MODES = ["AUTO", "ON", "OFF"] as const;
 export type LightMode = 0 | 1 | 2;
 
-// B still only quick-switches the original 3 owned vehicles — policeCar/patrolBoat
-// are parked at the station/marina and reached by walking up + E, same as any
-// other vehicle (see lib/player.ts's mount scan, which is generic over VehicleKind)
+// B still only quick-switches the original 3 owned vehicles — policeCar/patrolBoat/
+// plane/helicopter/airliner1/airliner2/airliner3/airlinerCargo are parked at the
+// station/marina/airport and reached by walking up + E, same as any other
+// vehicle (see lib/player.ts's mount scan, which is generic over VehicleKind)
 const CYCLE: VehicleKind[] = ["car", "bike", "boat"];
 export const VEHICLE_NAMES: Record<VehicleKind, string> = {
   car: "CITY SEDAN",
@@ -22,6 +29,12 @@ export const VEHICLE_NAMES: Record<VehicleKind, string> = {
   boat: "SEA SPRITE",
   policeCar: "POLICE CRUISER",
   patrolBoat: "HARBOR PATROL",
+  plane: "SKY RUNNER",
+  helicopter: "HARBOR CHOPPER",
+  airliner1: "JETLINER — GATE 2",
+  airliner2: "JETLINER — GATE 3",
+  airliner3: "JETLINER — GATE 4",
+  airlinerCargo: "CARGO FREIGHTER",
 };
 // hulls — anything that floats, not just the original "boat". Used wherever a
 // feature needs to exclude/include boats generically (club door, dock walking).
@@ -45,6 +58,9 @@ interface HudState {
   waypointDeg: number;
   mapOpen: boolean;
   inClub: boolean;
+  // the #controls key-hint panel — H toggles it, matching the original's
+  // index.html ~6490 (`p.style.display = p.style.display==='none'?'':'none'`)
+  controlsVisible: boolean;
   // paint/roofline the player's sedan is currently wearing after a steal
   // (lib/steal.ts); null = its own factory colour. Consumed by Car.tsx.
   stolenCar: { color: string; style: CarStyle } | null;
@@ -63,6 +79,7 @@ interface HudState {
   setNavTarget: (l: Landmark) => void;
   setMapOpen: (open: boolean) => void;
   setInClub: (v: boolean) => void;
+  toggleControlsVisible: () => void;
   setStolenCar: (v: { color: string; style: CarStyle } | null) => void;
   vehicleName: () => string;
 }
@@ -88,6 +105,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   waypointDeg: 0,
   mapOpen: false,
   inClub: false,
+  controlsVisible: true,
   stolenCar: null,
   setHud: (speedKmh, grounded) => set({ speedKmh, grounded }),
   // no-ops while on foot — B is this build's own quick-switch between owned
@@ -117,6 +135,7 @@ export const useHudStore = create<HudState>((set, get) => ({
   setNavTarget: (l) => set({ navTarget: l, mapOpen: false }),
   setMapOpen: (open) => set({ mapOpen: open }),
   setInClub: (v) => set({ inClub: v }),
+  toggleControlsVisible: () => set((s) => ({ controlsVisible: !s.controlsVisible })),
   setStolenCar: (v) => set({ stolenCar: v }),
   vehicleName: () => {
     const a = get().active;

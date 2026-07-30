@@ -11,6 +11,7 @@ import { BigMap } from "@/components/BigMap";
 // (mobile — desktop parity first).
 export function HUD() {
   const speedKmh = useHudStore((s) => s.speedKmh);
+  const controlsVisible = useHudStore((s) => s.controlsVisible);
   const active = useHudStore((s) => s.active);
   const clock = useHudStore((s) => s.clock);
   const hint = useHudStore((s) => s.hint);
@@ -84,7 +85,7 @@ export function HUD() {
         ))}
       </div>
 
-      <div id="controls">
+      <div id="controls" style={{ display: controlsVisible ? "block" : "none" }}>
         <b>W A S D</b> move / drive
         <br />
         <b>SPACE</b> handbrake
@@ -97,15 +98,11 @@ export function HUD() {
         <br />
         <b>B</b> switch vehicle
         <br />
-        <b>MOUSE</b> pan camera
-        <br />
         <b>C</b> camera view
         <br />
         <b>L</b> headlights auto/on/off
         <br />
         <b>M</b> mute engine
-        <br />
-        <b>G</b> map / directions
       </div>
 
       <div id="vig" />

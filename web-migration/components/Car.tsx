@@ -239,11 +239,20 @@ const SEDAN_COLORS = [
 // this leaf so a steal never re-renders the drive rig above it.
 function StolenAwareCarMesh() {
   const stolen = useHudStore((s) => s.stolenCar);
+  // Headlights.tsx deliberately drives the shared HEADLIGHT/TAILLIGHT/BEAM
+  // materials off the day/night cycle only, not the player's L toggle — an
+  // NPC three streets away shouldn't go dark because he flicked it. But that
+  // means the player's OWN lamp fixtures/ground pool were always using those
+  // same shared materials regardless of lightMode, so setting L to OFF killed
+  // the actual SpotLight beam but left the lamp meshes glowing at night. lit
+  // here swaps this one car over to the static "off" materials when OFF.
+  const lit = useHudStore((s) => s.lightMode) !== 2;
   return (
     <CarMesh
       key={stolen ? `${stolen.color}:${stolen.style}` : "own"}
       color={stolen?.color}
       style={stolen?.style}
+      lit={lit}
     />
   );
 }
@@ -254,7 +263,8 @@ export function CarMesh({
   color,
   style,
   detail = "high",
-}: { color?: string; style?: CarStyle; detail?: Detail } = {}) {
+  lit = true,
+}: { color?: string; style?: CarStyle; detail?: Detail; lit?: boolean } = {}) {
   // random-once-at-mount, not a memo: neither value changes after mount for
   // any given instance, and useState's lazy initializer is the sanctioned
   // place for a one-time impure value (Math.random) — a plain useMemo
@@ -263,5 +273,5 @@ export function CarMesh({
   // and the stolen-car path below both pin, so their cars are stable.
   const [bodyColor] = useState(() => color ?? SEDAN_COLORS[Math.floor(Math.random() * SEDAN_COLORS.length)]);
   const [ownStyle] = useState(() => styleFor(Math.random() * 300));
-  return <SupercarBody color={color ?? bodyColor} style={style ?? ownStyle} detail={detail} />;
+  return <SupercarBody color={color ?? bodyColor} style={style ?? ownStyle} detail={detail} lit={lit} />;
 }

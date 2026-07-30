@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { CarMesh } from "@/components/Car";
 import { RIDE_HEIGHT, styleFor, type CarStyle } from "@/components/SupercarBody";
 import { PoliceCarMesh } from "@/components/PoliceCar";
+import { CommercialBody, type CommercialKind } from "@/components/CommercialBody";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
 import { vehicleState } from "@/lib/vehicleState";
@@ -29,6 +30,11 @@ interface Lane {
   speed: number;
   color: string;
   police?: boolean;
+  // undefined = existing sedan (CarMesh), unchanged. Buses/trucks are given
+  // slower speeds below than their sedan-lane equivalents — bigger vehicle,
+  // slower arcade "traffic" read, same reasoning as the police lanes topping
+  // out higher because they're meant to feel urgent.
+  kind?: CommercialKind;
 }
 
 // Lane cross-axis values must land on the real road grid. City.tsx bakes
@@ -43,7 +49,7 @@ const LANES: Lane[] = [
   { axis: "x", lane: -50, min: -85, max: 85, speed: 13, color: "#3a3f4a" },
   { axis: "z", lane: 50, min: -85, max: 85, speed: 9, color: "#1f4a7a" },
   { axis: "z", lane: -50, min: -85, max: 85, speed: 11, color: "#7a2020" },
-  { axis: "x", lane: 150, min: -85, max: 85, speed: 8, color: "#2a5a3a" },
+  { axis: "x", lane: 150, min: -85, max: 85, speed: 7, color: "#2a5a3a", kind: "bus" },
   // patrol the police-station neighborhood (lib/landmarks.ts POLICE HARBOR,
   // x:450 z:50) — recruit into a convoy behind the player whenever a police
   // vehicle (policeCar) is being driven nearby, ported from the original's
@@ -57,11 +63,11 @@ const LANES: Lane[] = [
 
   // more NPC traffic — a couple more streets, plus a 2nd car on two of the
   // busiest existing ones (same lane spec, different seed stagger)
-  { axis: "z", lane: 150, min: -85, max: 85, speed: 10, color: "#b33a3a" },
-  { axis: "x", lane: -150, min: -85, max: 85, speed: 9, color: "#4a6a8a" },
-  { axis: "z", lane: -150, min: -85, max: 85, speed: 12, color: "#8a7a3a" },
-  { axis: "x", lane: 50, min: -85, max: 85, speed: 12, color: "#5a5a5a" },
-  { axis: "z", lane: -50, min: -85, max: 85, speed: 9, color: "#3a5a5a" },
+  { axis: "z", lane: 150, min: -85, max: 85, speed: 8, color: "#b33a3a", kind: "truck" },
+  { axis: "x", lane: -150, min: -85, max: 85, speed: 9, color: "#4a6a8a", kind: "jeep" },
+  { axis: "z", lane: -150, min: -85, max: 85, speed: 8, color: "#8a7a3a", kind: "bus" },
+  { axis: "x", lane: 50, min: -85, max: 85, speed: 9, color: "#5a5a5a", kind: "truck" },
+  { axis: "z", lane: -50, min: -85, max: 85, speed: 9, color: "#3a5a5a", kind: "jeep" },
 
   // more patrol cars, out near spawn rather than only around the station,
   // so you actually run into one without driving out to POLICE HARBOR
@@ -279,6 +285,8 @@ function TrafficCar({ lane, seed, index }: { lane: Lane; seed: number; index: nu
       <group ref={meshRef}>
         {lane.police ? (
           <PoliceCarMesh lightRefs={lightRefs} detail="low" />
+        ) : lane.kind ? (
+          <CommercialBody kind={lane.kind} color={lane.color} detail="low" />
         ) : (
           <CarMesh color={lane.color} style={trafficPositions[index].style} detail="low" />
         )}
