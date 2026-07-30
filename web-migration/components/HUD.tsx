@@ -98,6 +98,8 @@ export function HUD() {
         <br />
         <b>B</b> switch vehicle
         <br />
+        <b>CLICK</b> free-look camera
+        <br />
         <b>C</b> camera view
         <br />
         <b>L</b> headlights auto/on/off
