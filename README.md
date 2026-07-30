@@ -32,13 +32,32 @@ Production build: `npm run build && npm run start`.
 | `W A S D` / Arrow keys | Move / drive |
 | `Space` | Handbrake (driving) · Jump (on foot) |
 | `Shift` | Nitro (cars only) |
-| `E` | Enter/exit vehicle · open club door · steal the car you're standing next to |
-| `B` | Switch vehicle — car / bike / boat |
+| Move mouse (click canvas once) | Free-look the chase camera — true 360°, no edge to hit |
+| `E` | Enter/exit a vehicle · open the club door · steal the car you're standing next to |
+| `B` | Switch between car / bike / boat |
 | `C` | Cycle camera — chase / cockpit / hood / cinematic |
+| `L` | Headlights — auto / on / off |
+| `V` | Cycle weather |
 | `G` | Open the map and set a destination |
 | `M` | Mute engine audio |
+| `H` | Hide/show the on-screen controls legend |
 
-On-screen buttons mirror the camera and map controls.
+Any vehicle not on that quick-switch list — the police cruiser, patrol boat,
+plane, helicopter, or one of the parked airliners — is walk-up-and-`E`, same as
+stealing a car. On-screen buttons mirror the camera and map controls.
+
+### Free-look camera
+
+Click anywhere on the canvas once and the OS cursor disappears — the browser's
+[Pointer Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_Lock_API)
+takes over, so the chase camera reads raw mouse *movement* instead of cursor
+*position*. That's the difference that matters: a position-based pan always
+has an edge somewhere (the edge of your monitor), no matter how it's tuned —
+movement-based pan doesn't, because there's no position to run out of. Push
+right forever and the camera just keeps turning, wrapped into a real 360°.
+`Esc` (or clicking off the game) releases the lock and gives the cursor back;
+click the canvas again to re-engage. The lock drops automatically while the
+map is open, so you can click a destination normally.
 
 ## What's in it
 
