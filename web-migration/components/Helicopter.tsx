@@ -73,6 +73,7 @@ export function Helicopter() {
     vehicleState.helicopter.x = pos.current.x;
     vehicleState.helicopter.z = pos.current.z;
     vehicleState.helicopter.h = fs.current.h;
+    vehicleState.helicopter.y = pos.current.y;
 
     if (!isActive) return;
     worldState.px = pos.current.x;
