@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useHudStore } from "@/lib/hudStore";
 import { worldState } from "@/lib/worldState";
 import { LANDMARKS, type Landmark } from "@/lib/landmarks";
+import { streetName } from "@/lib/streetNames";
 
 const SIZE = 460;
 // fixed world-space bounds covering every landmark with margin — a full map,
