@@ -559,6 +559,26 @@ const LANDMARK_CHUNKS = new Set(LANDMARKS.map((l) => `${Math.round(l.x / CELL)},
 // CLUB_IN sits far south, outside any real landmark chunk — exempt it too so
 // no random building/park spawns inside/around the club interior room
 const CLUB_IN_CHUNK = `${Math.round(CLUB_IN.x / CELL)},${Math.round(CLUB_IN.z / CELL)}`;
+// INTERNATIONAL AIRPORT is a 480x480m walled airfield (real-scale runway,
+// terminal, hangars, cargo yard — see components/Airport.tsx's FENCE_X/FENCE_Z
+// = 240 around world (-300,100)), far too big for one chunk. Clears the whole
+// 5x5 chunk block around its centre chunk ((-3,1), see lib/landmarks.ts) —
+// exactly the chunks the perimeter fence touches — so the airfield reads as
+// its own isolated compound rather than random buildings poking through the
+// fence line and skyscrapers standing in the middle of the runway.
+const AIRPORT_CENTER_CHUNK = { ci: Math.round(-300 / CELL), cj: Math.round(100 / CELL) };
+// exported so components/Pedestrians.tsx can steer its spawn/rehome picks off
+// this same footprint — the airport is sealed to vehicles at its one gate
+// (components/Airport.tsx's PerimeterFence) but foot traffic isn't blocked by
+// that collider, so without this a rehoming civilian can walk onto the field
+// same as the player can
+export const AIRPORT_CHUNKS = new Set<string>();
+const AIRPORT_CHUNK_RADIUS = 2; // 240m fence half-extent / 100m CELL, rounded up
+for (let di = -AIRPORT_CHUNK_RADIUS; di <= AIRPORT_CHUNK_RADIUS; di++) {
+  for (let dj = -AIRPORT_CHUNK_RADIUS; dj <= AIRPORT_CHUNK_RADIUS; dj++) {
+    AIRPORT_CHUNKS.add(`${AIRPORT_CENTER_CHUNK.ci + di},${AIRPORT_CENTER_CHUNK.cj + dj}`);
+  }
+}
 
 // New chunks needed this many at a time per frame, once a boundary crossing
 // queues them — see the ADD_PER_FRAME note in City() below.
@@ -671,7 +691,11 @@ function Chunk({ ci, cj }: { ci: number; cj: number }) {
   const cz = cj * CELL;
   // keep the spawn block and any landmark's block clear of random buildings/
   // parks, like the original's showroom/club/landmarkChunks exemptions
-  const isExempt = (ci === 0 && cj === 0) || LANDMARK_CHUNKS.has(`${ci},${cj}`) || `${ci},${cj}` === CLUB_IN_CHUNK;
+  const isExempt =
+    (ci === 0 && cj === 0) ||
+    LANDMARK_CHUNKS.has(`${ci},${cj}`) ||
+    `${ci},${cj}` === CLUB_IN_CHUNK ||
+    AIRPORT_CHUNKS.has(`${ci},${cj}`);
 
   const content = useMemo(() => {
     if (isExempt) return { buildings: [] as BuildingSpec[], trees: [] as TreeDesc[], isPark: false };

@@ -7,6 +7,7 @@ import { worldState } from "@/lib/worldState";
 import { useHudStore } from "@/lib/hudStore";
 import { SHORE_X } from "@/lib/marina";
 import { PersonFigure, PERSON_MODEL_HEIGHT } from "@/components/PersonFigure";
+import { AIRPORT_CHUNKS } from "@/components/City";
 
 // Real port of the original's pedestrian system (index.html ~line 6148-6182,
 // 7591-7632): 44 civilians + 7 cops, each walking a 72m square loop around a
@@ -75,7 +76,26 @@ interface Ragdoll {
 
 // Initial blocks are picked in ci -3..0 (clamped west of SHORE_X, same as
 // rehoming below) so nobody spawns mid-ocean before the first rehome check.
+// Neither the initial spawn range nor the rehome pick below know about
+// INTERNATIONAL AIRPORT's footprint (components/City.tsx's AIRPORT_CHUNKS) —
+// the airport's one gate is sealed to vehicles only (components/Airport.tsx's
+// PerimeterFence, a VEHICLE_ONLY collider), so an ordinary walking civilian
+// isn't stopped by it the way a car is. Reroll off any airport chunk so the
+// field's only foot traffic is the maintenance crew Airport.tsx places itself.
+function pickCityBlock(nextCi: () => number, nextCj: () => number): [number, number] {
+  for (let i = 0; i < 8; i++) {
+    const ci = nextCi();
+    const cj = nextCj();
+    if (!AIRPORT_CHUNKS.has(`${ci},${cj}`)) return [ci, cj];
+  }
+  return [nextCi(), nextCj()];
+}
+
 function makeSpec(officer: boolean): PedSpec {
+  const [ci, cj] = pickCityBlock(
+    () => -Math.floor(rand() * 4),
+    () => Math.floor(rand() * 7) - 3
+  );
   return {
     skin: SKINS[(rand() * SKINS.length) | 0],
     shirt: officer ? "#1c2c4e" : SHIRTS[(rand() * SHIRTS.length) | 0],
@@ -83,8 +103,8 @@ function makeSpec(officer: boolean): PedSpec {
     officer,
     dir: rand() < 0.5 ? 1 : -1,
     baseSpeed: officer ? 1.2 + rand() * 0.8 : 1.3 + rand() * 1.3,
-    ci: -Math.floor(rand() * 4),
-    cj: Math.floor(rand() * 7) - 3,
+    ci,
+    cj,
     s: rand() * LOOP_LEN,
   };
 }
@@ -210,8 +230,10 @@ function Ped({ spec }: { spec: PedSpec }) {
     if (fdx * fdx + fdz * fdz > REHOME_DIST2 || inWater) {
       const playerCi = Math.round(worldState.px / CELL);
       const playerCj = Math.round(worldState.pz / CELL);
-      const newCi = Math.min(playerCi + (Math.floor(Math.random() * 5) - 2), 0);
-      const newCj = playerCj + (Math.floor(Math.random() * 5) - 2);
+      const [newCi, newCj] = pickCityBlock(
+        () => Math.min(playerCi + (Math.floor(Math.random() * 5) - 2), 0),
+        () => playerCj + (Math.floor(Math.random() * 5) - 2)
+      );
       ps.cx = newCi * CELL;
       ps.cz = newCj * CELL;
       ps.s = Math.random() * LOOP_LEN;

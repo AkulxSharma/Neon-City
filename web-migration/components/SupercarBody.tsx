@@ -47,6 +47,10 @@ const CHROME = new THREE.MeshStandardMaterial({ color: "#23262d", metalness: 0.9
 // set IS what's drawn, and past the bloom threshold it flares.
 export const HEADLIGHT = new THREE.MeshBasicMaterial({ color: "#eaf2ff" });
 export const TAILLIGHT = new THREE.MeshBasicMaterial({ color: "#ff2b2b" });
+// static, never touched by Headlights.tsx's day/night loop — an "engine off"
+// look for parked decoration (fixture still there, just dark glass, no glow)
+const HEADLIGHT_OFF = new THREE.MeshStandardMaterial({ color: "#3a3d42", roughness: 0.35, metalness: 0.2 });
+const TAILLIGHT_OFF = new THREE.MeshStandardMaterial({ color: "#5a1414", roughness: 0.4 });
 
 // Soft pool of light thrown on the road ahead of every car. Deliberately a
 // textured additive quad rather than a real SpotLight per vehicle: a dozen
@@ -153,16 +157,20 @@ export function SupercarBody({
   color,
   style = "gt",
   detail = "high",
+  lit = true,
   children,
 }: {
   color: string;
   style?: CarStyle;
   detail?: Detail;
+  lit?: boolean;
   children?: React.ReactNode;
 }) {
   const body = paint(color);
   const high = detail === "high";
   const open = style === "roadster"; // no fixed roof / rear glass
+  const headlightMat = lit ? HEADLIGHT : HEADLIGHT_OFF;
+  const taillightMat = lit ? TAILLIGHT : TAILLIGHT_OFF;
 
   return (
     <group>
@@ -293,23 +301,29 @@ export function SupercarBody({
 
       {/* ---- lighting: slim angled LED strips, full-width tail bar ---- */}
       {[1, -1].map((s) => (
-        <mesh key={`hl${s}`} position={[s * 0.55, -0.55, 2.32]} rotation={[0, 0, s * 0.14]} material={HEADLIGHT}>
+        <mesh key={`hl${s}`} position={[s * 0.55, -0.55, 2.32]} rotation={[0, 0, s * 0.14]} material={headlightMat}>
           <boxGeometry args={[0.46, 0.075, 0.06]} />
         </mesh>
       ))}
-      <mesh position={[0, -0.4, -2.2]} material={TAILLIGHT}>
+      <mesh position={[0, -0.4, -2.2]} material={taillightMat}>
         <boxGeometry args={[1.46, 0.07, 0.05]} />
       </mesh>
       {/* the pool the lamps cast. Laid flat just above the road (the group's
           origin sits RIDE_HEIGHT above the contact patch, so -0.955 is ~2.5cm
           of clearance — enough to beat z-fighting with the asphalt). Opacity
-          is 0 by day, so this costs a fully-transparent quad and nothing else. */}
-      <mesh position={[0, -0.955, 6.4]} rotation={[-Math.PI / 2, 0, 0]} material={BEAM} renderOrder={2}>
-        <planeGeometry args={[5.2, 8.4]} />
-      </mesh>
+          is 0 by day, so this costs a fully-transparent quad and nothing else.
+          Skipped for unlit (parked/engine-off) cars — BEAM's opacity is a
+          shared day/night value, not per-instance, so there's no "off" state
+          to set on it; not rendering the quad is the only way to guarantee
+          no glow under a parked car. */}
+      {lit && (
+        <mesh position={[0, -0.955, 6.4]} rotation={[-Math.PI / 2, 0, 0]} material={BEAM} renderOrder={2}>
+          <planeGeometry args={[5.2, 8.4]} />
+        </mesh>
+      )}
       {high &&
         [1, -1].map((s) => (
-          <mesh key={`bl${s}`} position={[s * 0.5, -0.55, -2.18]} material={TAILLIGHT}>
+          <mesh key={`bl${s}`} position={[s * 0.5, -0.55, -2.18]} material={taillightMat}>
             <boxGeometry args={[0.22, 0.06, 0.04]} />
           </mesh>
         ))}

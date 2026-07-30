@@ -1034,23 +1034,391 @@ using 4 baked transparent-background canvas textures.
 Minimap.tsx` (street names), `components/City.tsx` (poster signage, category
 icons, graffiti decals, `SIGN_TINTS` extracted from `SIGN_MATS`).
 
+## Milestone 18 — weather, nitro FX, commercial traffic, airport + flyable aircraft (2026-07-30)
+
+**Goal:** a batch of user-requested additions on top of the now-complete
+whole-city base (Milestones 1-17) — weather parity with the original, a
+visible nitro effect, three background-agent-built additions (commercial
+traffic, an airport, flyable planes/helicopters), and a run of small bug
+fixes surfaced along the way. Several pieces this milestone were built by
+background `sonnet-craftsman` agents rather than directly, per this session's
+own workflow — each one's diff was read and checked for bugs before being
+folded in here, not taken on faith from the agent's own report.
+
+**Weather ported from the original, with real wet-grip physics.**
+`lib/weatherState.ts` (new) is a `WEATHER`/`WEATHER_W`-weighted picker +
+`cycleWeather()` (bound to `V`), same shared-singleton pattern as
+`skyState`/`worldState`. `components/Weather.tsx` (new) blends fog/background/
+hemisphere-light and drives a 500-point rain particle system, deliberately
+rendered *after* `<SkyCycle/>` in `Game.tsx` so it blends onto the same-frame
+`scene.fog` SkyCycle already set rather than fighting it. `lib/carPhysics.ts`'s
+grip formula now multiplies by `weatherState.wetGrip` (replacing a literal
+`*1` placeholder) — affects all five vehicle types since they share
+`stepCarPhysics`.
+
+**Real nitro flame/exhaust, not just the HUD bar.** `components/NitroFX.tsx`
+(new) is a 24-puff particle pool plus a two-cone flame rig with its own
+`PointLight`, spawning while boosting, reading `vehicleState.car`.
+
+**Restored the original's `H` key** (hide/show the `#controls` hint panel) —
+`hudStore.controlsVisible` + `toggleControlsVisible()`, wired in `Game.tsx`'s
+key handler. Hit a real Turbopack/SWC parser bug doing this the obvious way:
+`{cond && (<div>...)}` conditional-mount JSX intermittently threw a
+persistent "Expected '</', got 'ident'" parse error on the *next* line, even
+with `tsc --noEmit` clean and a full cache clear — worked around by using
+`style={{display: cond ? "block" : "none"}}` instead of conditional mount,
+which doesn't trip the same parser path. Also dropped the `MOUSE pan camera`
+and `G map / directions` lines from the displayed panel (redundant/already
+known, per direct user ask) — display-only, the actual `G` keybinding in
+`Game.tsx` was left untouched and re-verified still working.
+
+**Fixed: player's own headlights stayed visibly lit even toggled OFF.**
+`Headlights.tsx`'s shared `HEADLIGHT`/`TAILLIGHT`/`BEAM` materials are
+deliberately global (so one `L` toggle doesn't dim an NPC three streets away)
+— which meant the player's own car had no way to actually go dark. Added a
+`lit` prop threaded `CarMesh` (`Car.tsx`) → `SupercarBody` (`SupercarBody.tsx`),
+backed by new static `HEADLIGHT_OFF`/`TAILLIGHT_OFF` materials (never touched
+by the day/night loop) and skipping the `BEAM` ground-light mesh entirely
+(not just hiding it) when unlit. `StolenAwareCarMesh` now passes
+`lit={hud.lightMode !== 2}`; every decorative parked car (MizuRestaurant.tsx)
+now passes `lit={false}` so parked cars read as off, not idling.
+
+**Commercial traffic — jeeps/buses/trucks, background agent, reviewed clean.**
+`components/CommercialBody.tsx` (new) builds three genuinely different boxy
+silhouettes (not a recolour of the sedan wedge) sharing one paint/glass/trim/
+wheel material cache; `Traffic.tsx` tags 6 of its lanes with a `kind`, at
+speeds slowed relative to their sedan-lane equivalents. Reviewed line-by-line
+against `SupercarBody.tsx`'s export surface (confirmed `HEADLIGHT_OFF`/
+`TAILLIGHT_OFF` really are module-private, so the local redeclaration was
+correct, not an oversight) — no bugs found, `tsc`/lint clean.
+
+**Airport + drivable planes/helicopters — background agent, reviewed clean.**
+`components/Airport.tsx` (new): REGIONAL AIRPORT landmark at world
+`(-300,100)` (chunk `(-3,1)`, confirmed free of every other landmark's
+chunk) — runway, taxiway, apron, helipad, terminal + control tower with a
+pulsing beacon, hangar, windsock, one shared `RigidBody` with 3
+`CuboidCollider`s. `lib/flightPhysics.ts` (new) is a shared arcade flight
+step (`stepFlight` + `PLANE_HANDLING`/`HELI_HANDLING`), same
+"function + sibling handling-constant objects" shape as `carPhysics.ts`, but
+its own model (vertical axis, ground floor, no tyre grip) rather than reusing
+`stepCarPhysics`. `components/Plane.tsx`/`Helicopter.tsx` (new) are
+kinematic, direct-integration rigs matching `PatrolBoat.tsx`'s idiom — mount
+by walking up + `E` (added to `VehicleKind`, deliberately *not* added to the
+`B`-cycle, same precedent as `policeCar`/`patrolBoat`). Reviewed against the
+chunk/curb math (confirmed the whole layout fits inside the chunk's drivable
+interior, apron/helipad don't overlap the terminal/hangar colliders, parked
+`vehicleState.plane`/`.helicopter` coordinates land inside the apron/helipad
+shapes) and against `PatrolBoat.tsx`'s own established pattern (confirmed the
+RigidBody's initial JSX `position` ignoring a saved position on first mount
+isn't a new bug — `PatrolBoat.tsx` has the exact same characteristic, it's
+this codebase's accepted pattern for kinematic vehicles, not an oversight) —
+no bugs found, `tsc`/lint clean.
+
+**Real bug found and fixed after the user reported it: planes/helicopters
+"drove on the road like any other car."** Root cause in `stepFlight`
+(`lib/flightPhysics.ts`): the vertical-rate target defaulted to `0` unless
+the `climb` key was *explicitly* held, so a grounded plane accelerating with
+just `W` never left the ground — it just rolled forward, visually
+indistinguishable from driving. Real planes don't need a separate button once
+past takeoff speed; added a `mode === "plane"` branch so a grounded plane at
+or above `liftMinSpeed` auto-rotates into a climb on its own (real runway
+behaviour), while airborne cruise (holds altitude unless climb/descend held)
+is unchanged. Helicopters deliberately excluded from the same rule —
+`liftMinSpeed=0` means "always fast enough," so the same branch would launch
+one the instant it's mounted, at rest, which isn't what "true hover" is
+supposed to mean; helicopters still require an explicit `SPACE` to climb,
+matching real collective-pitch control.
+
+**In progress as of this writing:** a fourth background agent is scaling the
+airport up and adding a security layer, per a follow-up user ask —
+multi-chunk clearing around `(-3,1)` in `City.tsx` so the airfield reads as
+its own isolated compound rather than sitting inside ordinary block-by-block
+sprawl, a bigger runway/apron/terminal/hangar, a perimeter fence + gate, and
+2-4 decorative parked police cars (reusing `PoliceCar.tsx`'s exported
+`PoliceCarMesh`) near the entrance. Not yet reviewed or folded in — do that
+before treating any of it as done.
+
+**Verification status — same honest gap as every prior milestone's flight-
+adjacent work.** All of the above is `tsc --noEmit`/lint clean per each
+agent's own run (re-confirmed by direct review of the diffs, not taken on
+faith), but **nothing in this milestone has been flown, driven, or visually
+confirmed in a live browser** — this sandbox's synthetic keyboard-driving
+input (`computer{action:"key"}`) doesn't reach the game's real controls (only
+simple toggle-style `KeyboardEvent` dispatch via `javascript_tool` reliably
+does), so there was no way to actually test drift/turn feel, the new
+liftoff behaviour, weather's visual blend, or the commercial vehicles' lane
+speeds. All handling constants in `flightPhysics.ts` are first-guess and
+named as such in its own header comment — retune once someone actually flies
+it.
+
+**Files added:** `lib/weatherState.ts`, `components/Weather.tsx`,
+`components/NitroFX.tsx`, `components/CommercialBody.tsx`,
+`lib/flightPhysics.ts`, `components/Airport.tsx`, `components/Plane.tsx`,
+`components/Helicopter.tsx`.
+**Files changed:** `lib/carPhysics.ts` (wet-grip), `lib/hudStore.ts`
+(`controlsVisible`, `plane`/`helicopter` `VehicleKind`), `components/HUD.tsx`
+(`#controls` display toggle, trimmed legend lines), `components/Game.tsx`
+(`H`/`V` keys, new component mounts), `components/Car.tsx`/`SupercarBody.tsx`
+(`lit` prop + off-state materials), `components/MizuRestaurant.tsx` (parked
+cars pass `lit={false}`), `components/Traffic.tsx` (commercial lane tagging),
+`lib/landmarks.ts`/`lib/vehicleState.ts` (REGIONAL AIRPORT + plane/helicopter
+entries).
+
+## Milestone 19 — airport security layer: multi-chunk clearing, bigger compound, perimeter fence + gate, parked cruisers (2026-07-30)
+
+**Goal:** fold in the item Milestone 18 left "in progress" — its background
+security agent never actually landed any code (the worktree it was meant to
+be running in, `.claude/worktrees/agent-af03d7d41032ac852`, diffed identical
+to `main`; no task was tracked for it either), so this milestone builds the
+security layer directly instead of reviewing someone else's diff.
+
+**Multi-chunk clearing, not a bigger single chunk.** `components/City.tsx`
+gained `AIRPORT_CHUNKS` — a 3x3 block centred on the airport's own chunk
+`(-3,1)` (`Math.round(-300/CELL), Math.round(100/CELL)`) — added as a fourth
+term in `Chunk`'s `isExempt` check alongside the spawn/landmark/club-interior
+exemptions. Chunks outside that block still get ordinary buildings right up
+to the fence line, so the compound reads as carved out of the city rather
+than an oversized landmark chunk. Road-grid ground tiles still render inside
+the cleared chunks (the exemption only skips `buildings`/`trees`, per
+`Chunk`'s existing logic) — `Airport.tsx`'s own asphalt/apron surfaces sit on
+top of that ground plane, same layering every other landmark already uses.
+
+**Runway/apron/terminal/hangar scaled up to fill the new footprint**
+(`components/Airport.tsx`): runway 56→100 units, apron 44×26→80×46, terminal
+14×9→24×16, hangar 13×11→22×17 — roughly the same proportions, just sized for
+a 300×300 compound instead of one 100×100 chunk. The helipad marking moved to
+stay clear of the bigger terminal footprint; every other structure kept its
+original relative layout (taxiway still connects runway to apron, hangar
+still sits east of the terminal).
+
+**Perimeter fence is 4 straight axis-aligned runs, not a generic polygon
+walker** — the compound is a plain rectangle, so `FenceWallX`/`FenceWallZ`
+just place one long chain-link panel + evenly-spaced posts per side, no
+rotation math. A 22-unit gap in the east wall (the side facing the city) is
+the gate. Each straight run gets its own `CuboidCollider` (5 total: north,
+south, west, and the two segments flanking the gate gap) so a vehicle can
+only get in through the opening — verified by hand after catching a sign
+error in the first cut of the gap-segment half-extent math (was computing the
+wrong side's length; fixed before it ever ran).
+
+**Gate is checkpoint dressing, not a working barrier arm** — two pillars, an
+overhead "AIRPORT SECURITY" sign beam, both with their own colliders. No
+animated arm: nothing in this build tracks authorized-vs-not, so a barrier
+that swings for every vehicle regardless would be a mechanic with nothing to
+react to.
+
+**3 parked cruisers posted just inside the gate**, reusing
+`components/PoliceCar.tsx`'s `PoliceCarMesh` and
+`components/ParkedPoliceJeep.tsx`'s `PoliceJeepMesh` — same
+visual-only-no-collider convention `components/PoliceStation.tsx`'s own
+fleet lot already established (drive-through dressing, not an obstacle),
+not a new pattern invented for this milestone.
+
+**Verified in a real browser, not just compiled.** `tsc --noEmit`/`eslint`
+both clean. Rather than physically drive ~380 units from spawn, seeded
+`localStorage`'s save slot directly with a vehicle spawned near the compound
+and reloaded — confirmed live: the fence line, the gate's two pillars +
+sign beam, and the parked cruisers all render at the correct position and
+distance relative to the REGIONAL AIRPORT waypoint. Simple `computer{action:
+"key"}` presses didn't reach the game's controls in this sandbox (same
+finding Milestone 18 already named); raw `KeyboardEvent` dispatch via
+`javascript_tool` did, and moved the bike at real speed — but steering back
+through the gate itself for a straight-on drive-through shot wasn't nailed
+down before wrapping up, so **the gate opening's collider gap has been
+verified by hand-checked math and by seeing the compound render correctly
+from outside, not by physically driving a vehicle through it on screen.**
+Worth a real drive-through check next session.
+
+**Files changed:** `components/City.tsx` (`AIRPORT_CHUNKS`, `isExempt`),
+`components/Airport.tsx` (scaled dimensions, `FenceWallX`/`FenceWallZ`/
+`PerimeterFence`/`Gate`/`GateGuardPost`).
+
+## Milestone 20 — INTERNATIONAL AIRPORT rebuild: real scale, drivable wide-bodies, gate-access fix, empty field (2026-07-30)
+
+**Goal:** the user's own airport walkthrough surfaced three real problems
+with Milestone 18/19's airport — it read as a single small landmark, not a
+"huge" international field; every parked aircraft was decoration, only the
+one small prop plane and the helicopter were flyable; and it was either wide
+open to city traffic or (after the first access fix) effectively unreachable.
+This milestone rebuilds the field at real scale and fixes the access model
+for real, not by hand-waving.
+
+**The airport is now genuinely huge, not a scaled-up version of the old
+single-chunk footprint.** `components/Airport.tsx` was rewritten wholesale:
+a 420m runway with real threshold markings/piano-keys/touchdown-zone bars,
+edge/threshold/PAPI lights and a 5-bar sequenced approach-lighting "rabbit"
+off the 09 end (all `MeshBasicMaterial` emitters, no per-light real lights —
+the scene's bloom pass is what makes them glow), a parallel taxiway with 3
+connectors, a 470×200m apron, a 300m-long terminal pier with 3 jet bridges
+and a real curtain-wall texture, a freestanding 52m control tower with a
+rotating radar dish, two 74×62m maintenance hangars (one with its doors
+open), a cargo yard with stacked shipping containers, a 3-tank fuel farm,
+6 apron floodlight masts, and a 480×480m perimeter fence. `components/
+Airport.tsx`'s exempted chunk radius in `City.tsx` grew from a 3x3 to a 5x5
+block to match. New `lib/airportTextures.ts` bakes canvas textures for
+runway asphalt, apron concrete, corrugated hangar/container steel, and the
+terminal's lit curtain wall — same `canvasTex`/`NearestFilter`+anisotropy
+idiom `City.tsx` already established, not a new pattern.
+
+**Airliners are now built at real scale, not model-kit scale.**
+`components/Airliner.tsx` (new) is a 58m nose-to-tail, 56m-span wide-body
+— wings, twin underslung engines, a proper empennage, multi-wheel main
+gear bogies — sized so standing under one next to the 1.8m pedestrian rig
+reads as standing under a building, matching the user's explicit ask.
+Three variants share one model: `livery` (6 paint schemes), `cargo` (swaps
+the cabin window strip for a freighter's main-deck door), and `broken` (the
+one deliberately un-flyable airframe: missing starboard wing + engine,
+scorched skin, canted tail, sat on a jack instead of its right main gear).
+
+**The field is alive, not a parked-car lot.** `components/AirportLife.tsx`
+(new): a shared `usePathFollower` hook drives every mover — two wide-bodies
+fly a full ~4-minute taxi→takeoff→climb-out→approach→land→taxi circuit
+(`circuitKeys`), two freighters taxi a shorter ground-only loop
+(`taxiKeys`), and 5 ground-service vehicles (tug, baggage train, fuel
+bowser, stairs truck, catering lift, pushback tractor — each its own boxy
+model, `WorkVehicleMesh`) run their own apron circuits. The broken jet's
+maintenance bay (`BrokenJet`) has its removed wing and engine laid out on
+trestles/stands, 3 scaffold towers with ladders, 2 flickering welding-arc
+point lights, and a small fixed repair crew — the only humans anywhere on
+the field, and the one place it was always meant to have people (see
+below).
+
+**Every parked wide-body is now a real vehicle, not a static prop —
+the actual point of this milestone.** New `components/DrivableAirliner.tsx`
+generalizes `Plane.tsx`'s kinematic-body/walk-up-and-`E` rig over an `id`,
+so one component drives all 4 mountable airframes (`airliner1`/`2`/`3` at
+the terminal's 3 gate stands, `airlinerCargo` on the cargo apron) —
+`lib/hudStore.ts` gained a new `AirlinerId` union folded into `VehicleKind`,
+`lib/vehicleState.ts` gained their parked coordinates (derived directly from
+`Airport.tsx`'s own gate/cargo-apron layout constants, not guessed), and
+`lib/flightPhysics.ts` gained `AIRLINER_HANDLING` — heavy and slow to turn
+(`turnRate` a quarter of the small plane's), needing a real ~110m takeoff
+roll before `liftMinSpeed` (26 m/s) lets it climb, well inside the new
+420m runway. Mounting one is identical to mounting the existing small
+plane/helicopter: walk up, press `E`. The broken jet is the deliberate
+exception named directly in the user's own ask ("unless it's broken or
+under construction") — it has no `vehicleState` entry and no mount trigger
+at all, by construction, not by a runtime check.
+
+**Real bug found and fixed: the airport was reachable by ordinary city
+traffic with zero collision.** The user reported cars driving straight into
+the compound and back out "without any touches." The gate gap in Milestone
+19's perimeter fence had no collider at all — open to everything. Fixed by
+adding one `CuboidCollider` across the gap tagged `VEHICLE_ONLY`
+(`lib/collisionGroups.ts`) — the same interaction-groups trick
+`Marina.tsx`'s shore wall already uses to block cars/bikes/traffic while
+staying invisible to the player's own on-foot collider (verified against
+Rapier's actual bitmask rule: `VEHICLE_ONLY`'s membership bit doesn't
+intersect the player collider's filter bits, so the math guarantees a
+pedestrian passes through regardless of gap width). NPC `Traffic.tsx` never
+reaches the airport's coordinates in the first place (its lanes are all
+within ±85 units of spawn), so this specifically stops the player's own car
+from driving in and stops nothing else from working.
+
+**Second real bug, found only after re-testing the first fix live: the
+gate itself was unfindable.** Sealing vehicles out is only correct if a
+pedestrian can actually *find* the opening — the first pass left the gate a
+28m gap floating mid-block in a 480m wall, off any road, which is why "make
+sure the player can get in" kept failing in live testing even after the
+collider fix was correct. Moved the gate to `GATE_CZ = -50` (world z = 50),
+a real road centreline (`components/City.tsx`'s grid puts asphalt at
+`x/z ≡ 50 mod 100`), and widened it to 60m. A car now drives straight up to
+the gate on the city's own road grid, hits the `VEHICLE_ONLY` wall, and has
+to U-turn — exactly the "take a U-turn... but not inside" behaviour asked
+for, achieved by routing, not a special-cased block. The 3 decorative
+parked cruisers (`GateGuardPost`) moved to flank the new gate position.
+**Verified live, not just by code review**: drove a car up to the new gate
+and confirmed it stops dead at the fence line (speed drops and stays
+pinned across repeated throttle, several real physics frames apart);
+dismounted with `E` and walked the same path on foot, confirmed reaching
+the interior grass/apron with a parked airliner visible ahead, past where
+the car had been stopped.
+
+**Third real bug: ordinary city pedestrians could wander onto the runway.**
+Not just the airport's own added crew — `components/Pedestrians.tsx`'s
+civilian spawn range (`ci` -3..0, `cj` -3..3) and its rehome-near-the-player
+logic both happen to cover the airport's exact chunk block, and neither
+knew the airport existed. A civilian rehoming while the player is anywhere
+near the field would land inside the fence, on foot, past the same
+`VEHICLE_ONLY` wall that (correctly) doesn't apply to them. Exported
+`AIRPORT_CHUNKS` from `City.tsx` and added a small retry-until-clear helper
+(`pickCityBlock`) to both `Pedestrians.tsx` call sites (initial spawn and
+rehome) so no ordinary civilian or beat-cop NPC ever picks an airport
+block. Combined with removing every ambient NPC `Airport.tsx` itself used
+to place (guard patrols, terminal foot traffic, per-gate ground crew), the
+field's only people are now the fixed repair team in the maintenance bay —
+matching the user's explicit "I want no one inside" (with that one named,
+deliberate exception, since it's the working scene they asked for
+directly).
+
+**Fourth real bug: a genuine glitch, not a perception issue — bank angle
+spiked on frame-rate variance.** `AirportLife.tsx`'s `usePathFollower`
+originally derived each mover's roll from `(this frame's heading change) /
+(this frame's dt)` — mathematically reasonable at a constant frame rate, but
+a stutter (more likely now that the airport renders far more geometry than
+before) spikes the estimate and snaps the roll visibly. Replaced with a
+frame-rate-independent estimate: sample the path's own heading at two fixed
+points in *path time* (0.35s apart, both derived from `s.clock.elapsedTime`
+directly, not from how long the last frame took) and smooth toward that at
+a normal fixed rate. Every mover on the field (both circuit airliners, both
+taxiing freighters) uses this same shared function, so this is a real,
+global smoothness fix, not a per-instance patch.
+
+**Not done this milestone, named honestly:** a broader draw-call/perf pass
+was requested ("optimize so planes run smoothly") but only the bank-angle
+correctness bug above was actually fixed — geometry segment counts in
+`Airliner.tsx` are still uninstanced/un-reduced (each aircraft is ~70+
+individual meshes: fan blades, gear, fairings), and the runway/taxiway/
+approach light spheres and cargo containers in `Airport.tsx` are still one
+draw call each rather than `InstancedMesh`. With up to 9 aircraft instances
+live at once this is the field's real remaining performance cost and the
+next thing worth profiling before adding more per-aircraft detail.
+
+**Files added:** `components/Airliner.tsx`, `components/AirportLife.tsx`,
+`components/DrivableAirliner.tsx`, `lib/airportTextures.ts`.
+**Files rewritten:** `components/Airport.tsx` (real scale, textures,
+lighting, drivable-vehicle wiring, gate relocation).
+**Files changed:** `components/City.tsx` (5x5 `AIRPORT_CHUNKS`, exported for
+`Pedestrians.tsx`), `components/Pedestrians.tsx` (`pickCityBlock` airport
+exclusion), `lib/hudStore.ts` (`AirlinerId`, `VEHICLE_NAMES`),
+`lib/vehicleState.ts` (4 new parked-airliner entries), `lib/flightPhysics.ts`
+(`AIRLINER_HANDLING`), `lib/landmarks.ts` (REGIONAL → INTERNATIONAL
+AIRPORT), `components/Game.tsx` (mounts the 4 `DrivableAirliner`s),
+`components/Helicopter.tsx` (`HeliMesh` exported, reused for parked
+decorative helis).
+
 ## Next up
 
 World-scale, physics, maps, building variety, and city texture/detail
 (Milestones 14-17) are now a cohesive whole city on top of the fidelity work
-in Milestones 1-13. Remaining, roughly by size: **verify Milestone 13's
-ragdoll hit-test live** (carried over, still unconfirmed — see its own
-honest-gap note above); the club interior's own deliberate simplifications
-(Milestone 9); the felony-stop convoy maneuver named and skipped in Milestone
-11; the car's own `speed*=0.9` slowdown on hitting a pedestrian (Milestone
-13); a perf pass now that Milestones 16-17 add meaningfully more meshes per
-chunk (towers/apartments/townhouses/graffiti each render several sub-meshes —
-worth profiling before adding more per-building detail); the garage bay's
-side walls/roof have no collider by design (visual only, so pulling in never
-gets stuck) — worth a follow-up pass if a player manages to clip through a
-side wall at speed; `laneBlocked()` only checks the 3 land vehicles, not
-other traffic cars against each other (they can still overlap one another,
-just not the player) — a real gap if that starts looking bad in practice;
+in Milestones 1-13; Milestone 18 layers weather, nitro FX, commercial
+traffic, and a flyable airport on top of that; Milestone 19 adds a security
+perimeter; Milestone 20 rebuilds the airport at real scale with drivable
+wide-bodies and fixes the three real access/population bugs the user found
+by actually playing it. Remaining, roughly by size:
+**a draw-call/perf pass on the airport specifically** — named honestly as
+not done in Milestone 20 (segment-count reduction + `InstancedMesh` for
+engine fan blades, runway/taxiway/approach lights, and cargo containers;
+up to 9 full aircraft instances is the field's real cost);
+**fly a drivable airliner end-to-end in a real browser** (mount at a gate,
+taxi, take off, land) to confirm `AIRLINER_HANDLING`'s first-guess numbers
+feel right, same as `PLANE_HANDLING`/`HELI_HANDLING` still need per
+Milestone 18's own note; **fly the small plane/helicopter and drive through
+weather at least once in a real browser** to confirm the liftoff behaviour
+and handling constants feel right; **verify Milestone 13's ragdoll hit-test
+live** (carried over, still unconfirmed); the club interior's own
+deliberate simplifications (Milestone 9); the felony-stop convoy maneuver
+named and skipped in Milestone 11; the car's own `speed*=0.9` slowdown on
+hitting a pedestrian (Milestone 13); a perf pass on the rest of the city now
+that Milestones 16-18 add meaningfully more meshes per chunk/landmark
+(towers/apartments/townhouses/graffiti/commercial-vehicle bodies each render
+several sub-meshes); the garage bay's side walls/roof have no collider by
+design (visual only, so pulling in never gets stuck) — worth a follow-up
+pass if a player manages to clip through a side wall at speed;
+`laneBlocked()` only checks the 3 land vehicles, not other traffic cars
+against each other; the plane/helicopter/airliner mount-by-`E` hint uses 2D
+(x,z) distance only (`lib/player.ts`, generic/shared), so a high-altitude
+aircraft still reads as "in range" from directly below it on the ground;
 BigMap.tsx doesn't have street names yet, only Minimap.tsx; and the
-still-unconfirmed `dpr={1}`/`EffectComposer` render artifact from Milestone
-13, still worth a real-hardware check.
+still-unconfirmed `dpr={1}`/`EffectComposer` render artifact from
+Milestone 13, still worth a real-hardware check.

@@ -27,4 +27,9 @@ export const LANDMARKS: Landmark[] = [
   // same corner of the map, just off the pavement.
   { name: "POLICE HARBOR", x: 490, z: 90, col: "#2452ff" },
   { name: "MIZU 21", x: 100, z: 0, col: "#f4c430" },
+  // chunk (-3,1) — round(-300/100)=-3, round(100/100)=1 — free: every other
+  // landmark rounds to (0,-1)/(0,0)/(2,2)/(-2,2)/(2,-2)/(-2,-2)/(1,-3)/(6,1)/
+  // (5,1)/(1,0), none of them (-3,1). See components/Airport.tsx for the
+  // whole-chunk layout built around this coordinate.
+  { name: "INTERNATIONAL AIRPORT", x: -300, z: 100, col: "#8fd6ff" },
 ].map((l) => ({ col: "#ff3fd6", ...l })) as Landmark[];
