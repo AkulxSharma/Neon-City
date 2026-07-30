@@ -6,6 +6,7 @@ import { trafficPositions } from "@/components/Traffic";
 import { LANDMARKS } from "@/lib/landmarks";
 import { useHudStore } from "@/lib/hudStore";
 import { roadRoute } from "@/lib/route";
+import { streetName } from "@/lib/streetNames";
 
 // Player-centred, player-up street radar. Streets and landmarks are drawn from
 // the SAME numbers the city is generated with (City.tsx CELL/ROAD_W): asphalt
@@ -35,18 +36,6 @@ function offRoad(v: number) {
 }
 const MARKS = LANDMARKS.map((l) => ({ ...l, mx: offRoad(l.x), mz: offRoad(l.z) }));
 
-// GTA5-style road names, curved along each street on the radar — using real
-// Buffalo, NY street names since that's the city this map is themed after.
-// Every road line (x/z ≡ 50 mod 100) gets a permanent name: its integer
-// street-index (which multiple of CELL it falls on) picks deterministically
-// from one of two lists, so the same street always shows the same name.
-const NS_STREET_NAMES = ["MAIN ST", "DELAWARE AVE", "ELMWOOD AVE", "BAILEY AVE", "GRANT ST", "JEFFERSON AVE", "MICHIGAN AVE", "ASHLAND AVE", "TRANSIT RD", "UNION RD"];
-const EW_STREET_NAMES = ["NIAGARA ST", "GENESEE ST", "HERTEL AVE", "BROADWAY", "SENECA ST", "CHIPPEWA ST", "ALLEN ST", "AMHERST ST", "FILLMORE AVE", "CLINTON ST"];
-function streetName(coord: number, axis: "x" | "z") {
-  const idx = Math.round((coord - 50) / CELL);
-  const arr = axis === "x" ? NS_STREET_NAMES : EW_STREET_NAMES;
-  return arr[((idx % arr.length) + arr.length) % arr.length];
-}
 // keeps a street label right-side-up on screen instead of upside-down,
 // whichever way the road happens to be pointing after the map rotates with heading
 function uprightAngle(a: number) {

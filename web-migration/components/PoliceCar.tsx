@@ -14,6 +14,7 @@ import { loadSave } from "@/lib/saveGame";
 import { applyCameraRig } from "@/lib/cameraRig";
 import { teleportRequest } from "@/lib/clubTeleport";
 import { checkCrashDebris } from "@/lib/debris";
+import { consumePedestrianHitSlowdown } from "@/lib/pedestrianHit";
 import { SupercarBody, RIDE_HEIGHT, type Detail } from "@/components/SupercarBody";
 import { QueryFilterFlags, type KinematicCharacterController } from "@dimforge/rapier3d-compat";
 
@@ -115,6 +116,9 @@ export function PoliceCar() {
 
     if (isActive) {
       checkCrashDebris(crashCooldown, d, { x: dx, z: dz }, { x: movement.x, z: movement.z }, Math.abs(car.current.speed), nextPos, car.current.h);
+      // see components/Car.tsx's identical block + lib/pedestrianHit.ts
+      const hitSlow = consumePedestrianHitSlowdown();
+      if (hitSlow !== null) car.current.speed *= hitSlow;
     }
 
     vehicleState.policeCar.x = nextPos.x;
