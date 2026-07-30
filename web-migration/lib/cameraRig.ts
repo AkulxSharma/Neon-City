@@ -39,9 +39,9 @@ export function applyCameraRig({ camera, camPos, camLook, tx, ty, tz, th, isBike
   const dz = Math.cos(th);
 
   if (camMode === 0) {
-    // chase — the only mode the optional hover look applies to. Both offsets
-    // are 0 while the cursor sits in the middle dead zone, so this is the
-    // original behaviour verbatim when the mouse is left alone (lib/cameraLook.ts).
+    // chase — the only mode the optional free-look applies to. Both offsets
+    // are 0 until the player has clicked in to engage pointer lock, so this
+    // is the original behaviour verbatim before that (lib/cameraLook.ts).
     const oa = th + cameraLook.yaw;
     const ox = Math.sin(oa);
     const oz = Math.cos(oa);
@@ -53,12 +53,12 @@ export function applyCameraRig({ camera, camPos, camLook, tx, ty, tz, th, isBike
     const want = new THREE.Vector3(tx - ox * orbit, h, tz - oz * orbit);
     // tighten the follow while the cursor is leaning the view, so the lean
     // reads as a deliberate camera move rather than the usual lazy drift
-    const k = 1 - Math.pow(cameraLook.active ? 0.00002 : 0.0015, dt);
+    const k = 1 - Math.pow(cameraLook.locked ? 0.00002 : 0.0015, dt);
     camPos.lerp(want, k);
     camera.position.copy(camPos);
     camLook.lerp(
       new THREE.Vector3(tx + ox * 4, ty + 1.6 - cameraLook.pitch * 1.2, tz + oz * 4),
-      1 - Math.pow(cameraLook.active ? 0.00002 : 0.0005, dt),
+      1 - Math.pow(cameraLook.locked ? 0.00002 : 0.0005, dt),
     );
     camera.lookAt(camLook);
   } else if (camMode === 1 || camMode === 2) {
