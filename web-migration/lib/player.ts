@@ -21,7 +21,13 @@ export function toggleVehicleFoot(): boolean {
       const v = vehicleState[k];
       const dx = v.x - worldState.px;
       const dz = v.z - worldState.pz;
-      const d2 = dx * dx + dz * dz;
+      // real 3D distance, not just ground-plane — without the y term, a
+      // plane or helicopter passing overhead reads as "in range, press E"
+      // from directly underneath on the ground. `v.y` is only ever set by
+      // Plane.tsx/Helicopter.tsx; every other vehicle stays near enough to
+      // ground/water level that treating a missing `y` as 0 is correct.
+      const dy = (v.y ?? 0) - worldState.py;
+      const d2 = dx * dx + dy * dy + dz * dz;
       if (d2 < bestD2) {
         bestD2 = d2;
         best = k;
