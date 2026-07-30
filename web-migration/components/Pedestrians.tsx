@@ -218,6 +218,10 @@ function Ped({ spec }: { spec: PedSpec }) {
             spin: (Math.random() * 2 - 1) * (fast ? 12 : 4),
             air: true,
           };
+          // ported from the original's tick(): the car itself loses 10% speed
+          // in the same beat the ragdoll fires — the collision costs the
+          // driver something too, not just the pedestrian (lib/pedestrianHit.ts)
+          requestPedestrianHitSlowdown();
           return;
         }
       }
